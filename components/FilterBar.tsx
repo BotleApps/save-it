@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 
 type Filter = 'all' | 'unread' | 'reading' | 'completed';
 
@@ -10,6 +10,7 @@ interface Props {
 }
 
 export function FilterBar({ currentFilter, onFilterChange }: Props) {
+  const colors = useColors();
   const filters: Array<{ id: Filter; label: string }> = [
     { id: 'all', label: 'All' },
     { id: 'unread', label: 'Unread' },
@@ -18,7 +19,7 @@ export function FilterBar({ currentFilter, onFilterChange }: Props) {
   ];
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { borderBottomColor: colors.border }]}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -29,14 +30,16 @@ export function FilterBar({ currentFilter, onFilterChange }: Props) {
             key={filter.id}
             style={[
               styles.filterButton,
-              currentFilter === filter.id && styles.activeFilter,
+              { backgroundColor: colors.card },
+              currentFilter === filter.id && { backgroundColor: colors.primary }
             ]}
             onPress={() => onFilterChange(filter.id)}
           >
             <Text
               style={[
                 styles.filterText,
-                currentFilter === filter.id && styles.activeFilterText,
+                { color: colors.textSecondary },
+                currentFilter === filter.id && { color: colors.text }
               ]}
             >
               {filter.label}
@@ -52,7 +55,6 @@ const styles = StyleSheet.create({
   wrapper: {
     height: 52,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   container: {
     paddingHorizontal: 16,
@@ -64,19 +66,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: colors.card,
     height: 36,
     justifyContent: 'center',
   },
-  activeFilter: {
-    backgroundColor: colors.primary,
-  },
   filterText: {
-    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
-  },
-  activeFilterText: {
-    color: colors.text,
   },
 });

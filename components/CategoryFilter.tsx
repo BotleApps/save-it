@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, Pressable, StyleSheet } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 
 const categories = [
   'Articles',
@@ -17,11 +17,13 @@ interface Props {
 }
 
 export function CategoryFilter({ selectedCategory, onSelectCategory }: Props) {
+  const colors = useColors();
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={styles.container}
+      style={[styles.container, { borderBottomColor: colors.border }]}
       contentContainerStyle={styles.content}
     >
       {categories.map((category) => (
@@ -29,7 +31,8 @@ export function CategoryFilter({ selectedCategory, onSelectCategory }: Props) {
           key={category}
           style={[
             styles.category,
-            selectedCategory === category && styles.selectedCategory
+            { backgroundColor: colors.card },
+            selectedCategory === category && { backgroundColor: colors.secondary }
           ]}
           onPress={() => onSelectCategory(
             selectedCategory === category ? null : category
@@ -38,7 +41,8 @@ export function CategoryFilter({ selectedCategory, onSelectCategory }: Props) {
           <Text
             style={[
               styles.categoryText,
-              selectedCategory === category && styles.selectedCategoryText
+              { color: colors.textSecondary },
+              selectedCategory === category && { color: colors.text }
             ]}
           >
             {category}
@@ -53,7 +57,6 @@ const styles = StyleSheet.create({
   container: {
     height: 44,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   content: {
     paddingHorizontal: 16,
@@ -65,16 +68,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: colors.card,
-  },
-  selectedCategory: {
-    backgroundColor: colors.secondary,
   },
   categoryText: {
-    color: colors.textSecondary,
     fontSize: 14,
-  },
-  selectedCategoryText: {
-    color: colors.text,
   },
 });

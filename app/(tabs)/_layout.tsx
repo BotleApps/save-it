@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
-import { colors } from '@/constants/colors';
 import { Home, Settings } from 'lucide-react-native';
+import { useColors } from '@/constants/colors';
 
 export default function TabLayout() {
+  const colors = useColors();
+
   return (
     <Tabs
       screenOptions={{

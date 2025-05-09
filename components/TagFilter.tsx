@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, Pressable, StyleSheet } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 
 interface Props {
@@ -9,9 +9,9 @@ interface Props {
 }
 
 export function TagFilter({ selectedTags, onSelectTags }: Props) {
+  const colors = useColors();
   const links = useLinksStore((state) => state.links);
   
-  // Get unique tags from all links
   const allTags = Array.from(
     new Set(links.flatMap(link => link.tags))
   ).sort();
@@ -38,14 +38,16 @@ export function TagFilter({ selectedTags, onSelectTags }: Props) {
           key={tag}
           style={[
             styles.tag,
-            selectedTags.includes(tag) && styles.selectedTag
+            { backgroundColor: colors.card },
+            selectedTags.includes(tag) && { backgroundColor: colors.secondary }
           ]}
           onPress={() => toggleTag(tag)}
         >
           <Text
             style={[
               styles.tagText,
-              selectedTags.includes(tag) && styles.selectedTagText
+              { color: colors.textSecondary },
+              selectedTags.includes(tag) && { color: colors.text }
             ]}
           >
             #{tag}
@@ -70,16 +72,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
-    backgroundColor: colors.card,
-  },
-  selectedTag: {
-    backgroundColor: colors.secondary,
   },
   tagText: {
-    color: colors.textSecondary,
     fontSize: 14,
-  },
-  selectedTagText: {
-    color: colors.text,
   },
 });

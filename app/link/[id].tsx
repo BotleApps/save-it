@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-na
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ExternalLink, ArrowLeft, Trash2 } from 'lucide-react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 
 export default function LinkDetailsScreen() {
+  const colors = useColors();
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const link = useLinksStore((state) => state.getLink(id as string));
@@ -47,7 +48,7 @@ export default function LinkDetailsScreen() {
         }}
       />
       
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
         {link.imageUrl && (
           <Image
             source={{ uri: link.imageUrl }}
@@ -57,22 +58,34 @@ export default function LinkDetailsScreen() {
         )}
 
         <View style={styles.content}>
-          <Text style={styles.title}>{link.title}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{link.title}</Text>
           
           {link.description && (
-            <Text style={styles.description}>{link.description}</Text>
+            <Text style={[styles.description, { color: colors.textSecondary }]}>
+              {link.description}
+            </Text>
           )}
 
-          <Pressable style={styles.linkButton} onPress={handleOpenLink}>
+          <Pressable 
+            style={[styles.linkButton, { backgroundColor: colors.primary }]} 
+            onPress={handleOpenLink}
+          >
             <ExternalLink size={20} color={colors.text} />
-            <Text style={styles.linkButtonText}>Open Link</Text>
+            <Text style={[styles.linkButtonText, { color: colors.text }]}>
+              Open Link
+            </Text>
           </Pressable>
 
           {link.tags.length > 0 && (
             <View style={styles.tags}>
               {link.tags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
+                <View 
+                  key={tag} 
+                  style={[styles.tag, { backgroundColor: colors.cardHover }]}
+                >
+                  <Text style={[styles.tagText, { color: colors.text }]}>
+                    #{tag}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -86,7 +99,6 @@ export default function LinkDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   headerButton: {
     padding: 8,
@@ -101,16 +113,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 12,
   },
   description: {
     fontSize: 16,
-    color: colors.textSecondary,
     marginBottom: 24,
   },
   linkButton: {
-    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -120,7 +129,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   linkButtonText: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -130,13 +138,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tag: {
-    backgroundColor: colors.cardHover,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
   },
   tagText: {
-    color: colors.text,
     fontSize: 14,
   },
 });

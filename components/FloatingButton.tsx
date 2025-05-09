@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 
 interface Props {
   icon: React.ReactNode;
@@ -8,10 +8,16 @@ interface Props {
 }
 
 export function FloatingButton({ icon, onPress }: Props) {
+  const colors = useColors();
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.button,
+        {
+          backgroundColor: colors.primary,
+          shadowColor: colors.primary,
+        },
         pressed && styles.pressed
       ]}
       onPress={onPress}
@@ -29,11 +35,9 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,

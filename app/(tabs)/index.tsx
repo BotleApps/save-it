@@ -5,9 +5,8 @@ import { Plus } from 'lucide-react-native';
 import { LinkCard } from '@/components/LinkCard';
 import { FilterBar } from '@/components/FilterBar';
 import { SearchBar } from '@/components/SearchBar';
-import { AddLinkModal } from '@/components/AddLinkModal';
 import { useLinksStore } from '@/stores/links';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 import { FloatingButton } from '@/components/FloatingButton';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { TagFilter } from '@/components/TagFilter';
@@ -15,14 +14,13 @@ import { TagFilter } from '@/components/TagFilter';
 type Filter = 'all' | 'unread' | 'reading' | 'completed';
 
 export default function LinksScreen() {
+  const colors = useColors();
   const router = useRouter();
   const links = useLinksStore((state) => state.links);
   const [currentFilter, setCurrentFilter] = useState<Filter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
   const filteredLinks = links.filter(link => {
     const matchesFilter = currentFilter === 'all' || link.status === currentFilter;
     const matchesSearch = searchQuery === '' || 
@@ -37,7 +35,7 @@ export default function LinksScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -71,12 +69,7 @@ export default function LinksScreen() {
 
       <FloatingButton
         icon={<Plus size={24} color={colors.text} />}
-        onPress={() => setIsModalVisible(true)}
-      />
-
-      <AddLinkModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
+        onPress={() => router.navigate('../new-link')}
       />
     </View>
   );
@@ -85,7 +78,6 @@ export default function LinksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 16,

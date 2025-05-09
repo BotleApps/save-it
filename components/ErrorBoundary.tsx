@@ -36,7 +36,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
 function ErrorView({ error }: { error?: Error }) {
   const colors = useColors();
-
+  
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>

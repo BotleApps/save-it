@@ -1,12 +1,13 @@
 import { View, StyleSheet, Text, ScrollView, Switch, Pressable, Share } from 'react-native';
-import { useColorScheme } from 'react-native';
 import { Download, Bell, Moon, Sun } from 'lucide-react-native';
-import { colors } from '@/constants/colors';
+import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
+import { useThemeStore, useTheme } from '@/constants/colors';
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const colors = useColors();
+  const theme = useTheme();
+  const { theme: themePreference, setTheme } = useThemeStore();
   const links = useLinksStore((state) => state.links);
 
   const handleExport = async () => {
@@ -22,28 +23,40 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
-        <View style={styles.setting}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Appearance</Text>
+        <View style={[styles.setting, { backgroundColor: colors.card }]}>
           <View style={styles.settingInfo}>
-            {isDark ? <Moon size={20} color={colors.text} /> : <Sun size={20} color={colors.text} />}
-            <Text style={styles.settingText}>Dark Mode</Text>
+            {theme === 'dark' ? (
+              <Moon size={20} color={colors.text} />
+            ) : (
+              <Sun size={20} color={colors.text} />
+            )}
+            <Text style={[styles.settingText, { color: colors.text }]}>Dark Mode</Text>
           </View>
           <Switch
-            value={isDark}
-            // In a real app, we would implement theme switching
-            onValueChange={() => {}}
+            value={theme === 'dark'}
+            onValueChange={(value) => setTheme(value ? 'dark' : 'light')}
+          />
+        </View>
+        <View style={[styles.setting, { backgroundColor: colors.card }]}>
+          <View style={styles.settingInfo}>
+            <Text style={[styles.settingText, { color: colors.text }]}>Use System Theme</Text>
+          </View>
+          <Switch
+            value={themePreference === 'system'}
+            onValueChange={(value) => setTheme(value ? 'system' : theme)}
           />
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Notifications</Text>
-        <View style={styles.setting}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Notifications</Text>
+        <View style={[styles.setting, { backgroundColor: colors.card }]}>
           <View style={styles.settingInfo}>
             <Bell size={20} color={colors.text} />
-            <Text style={styles.settingText}>Reading Reminders</Text>
+            <Text style={[styles.settingText, { color: colors.text }]}>Reading Reminders</Text>
           </View>
           <Switch
             value={false}
@@ -53,16 +66,19 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Data</Text>
-        <Pressable style={styles.setting} onPress={handleExport}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Data</Text>
+        <Pressable 
+          style={[styles.setting, { backgroundColor: colors.card }]} 
+          onPress={handleExport}
+        >
           <View style={styles.settingInfo}>
             <Download size={20} color={colors.text} />
-            <Text style={styles.settingText}>Export Links</Text>
+            <Text style={[styles.settingText, { color: colors.text }]}>Export Links</Text>
           </View>
         </Pressable>
       </View>
 
-      <Text style={styles.version}>Version 1.0.0</Text>
+      <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0</Text>
     </ScrollView>
   );
 }
@@ -70,7 +86,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   section: {
     paddingTop: 24,
@@ -79,7 +94,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
     marginBottom: 8,
     textTransform: 'uppercase',
   },
@@ -87,7 +101,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
@@ -99,11 +112,9 @@ const styles = StyleSheet.create({
   },
   settingText: {
     fontSize: 16,
-    color: colors.text,
   },
   version: {
     textAlign: 'center',
-    color: colors.textSecondary,
     marginTop: 32,
     marginBottom: 16,
   },
