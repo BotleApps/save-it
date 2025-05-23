@@ -1,0 +1,47 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Expo
+.expo/
+dist/
+app.config.js
+app.json
+*.jks
+*.p12
+*.keystore
+*.mobileprovision
+
+# Jest
+coverage/
+
+# Bundler
+.metro-cache/
+
+# Android
+android/app/build/
+android/build/
+android/app/.cxx/
+android/.gradle/
+android/gradle/wrapper/gradle-wrapper.jar
+android/gradle.properties
+android/local.properties
+android/settings.gradle
+
+# iOS
+ios/build/
+ios/Pods/
+ios/.xcode.env.local
+ios/DerivedData/
+*.xcscheme
+
+# Editor-specific
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
