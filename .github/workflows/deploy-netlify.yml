@@ -1,0 +1,42 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches:
+      - main # Or your default deployment branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a current LTS version, same as your dev environment if possible
+
+      - name: Install dependencies
+        # Check if yarn.lock exists, if so use yarn, else use npm ci
+        # For this project, package-lock.json exists, so use npm.
+        # The worker previously used --legacy-peer-deps for workbox-cli.
+        # Let's try `npm ci` first, if it fails due to peer deps, then `npm install --legacy-peer-deps`.
+        # For CI, it's generally better to resolve peer deps or use a version of a package that doesn't have them.
+        # However, to match the worker's successful local setup:
+        run: npm install --legacy-peer-deps
+
+      - name: Build PWA
+        run: npm run build:web # This runs "expo export -p web && npx workbox-cli generateSW workbox-config.js"
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3 # A popular community action for Netlify
+        with:
+          publish-dir: './dist' # Directory to deploy
+          production-branch: main # Branch that triggers production deploys
+          github-token: ${{ secrets.GITHUB_TOKEN }} # Optional: For commit statuses and PR comments
+          deploy-message: "Deploy from GitHub Actions: ${{ github.event.head_commit.message }}"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        timeout-minutes: 3 # Optional: Timeout for the deployment step
