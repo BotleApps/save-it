@@ -69,7 +69,7 @@ export default function LinksScreen() {
 
       <FloatingButton
         icon={<Plus size={24} color={colors.text} />}
-        onPress={() => router.navigate('../new-link')}
+        onPress={() => router.push('../../new-link')}
       />
     </View>
   );

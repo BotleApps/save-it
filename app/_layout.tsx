@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ToastProvider } from '@/contexts/toast';
 import { useColors } from '@/constants/colors';
 
 export const unstable_settings = {
@@ -33,7 +34,8 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
+    <ToastProvider>
+      <ErrorBoundary>
       <Stack
         screenOptions={{
           headerStyle: {
@@ -58,6 +60,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ToastProvider>
   );
 }

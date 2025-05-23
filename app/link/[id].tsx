@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Clipboard } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ExternalLink, ArrowLeft, Trash2 } from 'lucide-react-native';
+import { ExternalLink, ArrowLeft, Trash2, Copy } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 
@@ -24,6 +24,10 @@ export default function LinkDetailsScreen() {
   const handleDelete = () => {
     removeLink(link.id);
     router.replace('/');
+  };
+
+  const handleCopyLink = () => {
+    Clipboard.setString(link.url);
   };
 
   const handleOpenLink = () => {
@@ -60,10 +64,26 @@ export default function LinkDetailsScreen() {
         <View style={styles.content}>
           <Text style={[styles.title, { color: colors.text }]}>{link.title}</Text>
           
-          {link.description && (
-            <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {link.description}
-            </Text>
+          {(link.description || link.note) && (
+            <>
+              {link.description && (
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
+                  <Text style={[styles.description, { color: colors.textSecondary }]}>
+                    {link.description}
+                  </Text>
+                </View>
+              )}
+              
+              {link.note && (
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Note</Text>
+                  <Text style={[styles.description, { color: colors.textSecondary }]}>
+                    {link.note}
+                  </Text>
+                </View>
+              )}
+            </>
           )}
 
           <Pressable 
@@ -73,6 +93,16 @@ export default function LinkDetailsScreen() {
             <ExternalLink size={20} color={colors.text} />
             <Text style={[styles.linkButtonText, { color: colors.text }]}>
               Open Link
+            </Text>
+          </Pressable>
+
+          <Pressable 
+            style={[styles.linkButton, { backgroundColor: colors.primary }]} 
+            onPress={handleCopyLink}
+          >
+            <Copy size={20} color={colors.text} />
+            <Text style={[styles.linkButtonText, { color: colors.text }]}>
+              Copy Link
             </Text>
           </Pressable>
 
@@ -115,9 +145,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
   },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
   description: {
     fontSize: 16,
-    marginBottom: 24,
+    lineHeight: 24,
   },
   linkButton: {
     flexDirection: 'row',

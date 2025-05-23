@@ -6,6 +6,23 @@ import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { useTagsStore } from '@/stores/tags';
 import { TagInput } from '@/components/TagInput';
+import { useToast } from '@/contexts/toast';
+
+const isValidUrl = (urlString: string) => {
+  try {
+    const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i;
+    return urlPattern.test(urlString);
+  } catch {
+    return false;
+  }
+};
+
+const formatUrl = (urlString: string) => {
+  if (!urlString.match(/^https?:\/\//i)) {
+    return `https://${urlString}`;
+  }
+  return urlString;
+};
 
 export default function NewLinkScreen() {
   const colors = useColors();
@@ -13,55 +30,134 @@ export default function NewLinkScreen() {
   const [note, setNote] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingType, setLoadingType] = useState<'preview' | 'save' | null>(null);
+  const { showToast } = useToast();
   
   const addLink = useLinksStore((state) => state.addLink);
   const addTags = useTagsStore((state) => state.addTags);
 
   const handleSubmit = async () => {
     if (!url) {
-      setError('Please enter a URL');
+      showToast({ message: 'Please enter a URL', type: 'error' });
+      return;
+    }
+
+    const formattedUrl = formatUrl(url);
+    if (!isValidUrl(formattedUrl)) {
+      showToast({ message: 'Please enter a valid URL', type: 'error', duration: 3000 });
       return;
     }
 
     setIsLoading(true);
-    setError(null);
-
+    setLoadingType('preview');
+    
     try {
-      const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
+      console.log('Fetching preview for:', formattedUrl);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       
-      const response = await fetch(`https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}`);
+      const response = await fetch(
+        `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
       const data = await response.json();
+      console.log('API response:', { status: response.status, data });
       
-      if (!response.ok) throw new Error('Failed to fetch link preview');
+      if (response.status !== 200) {
+        console.log('API error - status:', response.status);
+        throw new Error(`Failed to fetch link preview: ${response.status}`);
+      }
 
-      const { title, description, image } = data.data;
+      if (!data.success) {
+        console.log('API error - data:', data);
+        throw new Error('API returned error');
+      }
+
+      console.log('Preview data:', data.data);
+      const { title = url, description = null, image = null } = data.data || {};
 
       addTags(tags); // Add to consolidated tags list
       addLink({
         url: formattedUrl,
         title: title || url,
-        description: description || note || null,
+        description: description || null,
+        note: note || null,
+        groups: [],
+        prompt: null,
+        summary: null,
+        response: null,
         imageUrl: image?.url || null,
         tags,
         category: null,
-        status: 'unread',
+        status: 'unread' as const,
         readingProgress: 0,
         estimatedReadTime: null,
       });
 
-      router.back();
-    } catch (err) {
-      setError('Failed to fetch link preview. Please try again.');
-    } finally {
       setIsLoading(false);
+      showToast({ 
+        message: 'Link saved successfully!',
+        type: 'success',
+        duration: 2000
+      });
+      router.dismiss();
+    } catch (err: any) {
+      setLoadingType('save');
+      const message = err.name === 'AbortError' 
+        ? 'Preview timed out. Saving without preview...'
+        : 'Preview failed. Saving without preview...';
+      showToast({ message, type: 'error', duration: 2000 });
+
+      // Save without preview after a brief delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      try {
+        addTags(tags);
+        addLink({
+          url: formattedUrl,
+          title: url,
+          description: null,
+          note: note || null,
+          groups: [],
+          prompt: null,
+          summary: null,
+          response: null,
+          imageUrl: null,
+          tags,
+          category: null,
+          status: 'unread' as const,
+          readingProgress: 0,
+          estimatedReadTime: null,
+        });
+
+        // Dismiss after successful save
+        showToast({ 
+          message: 'Link saved without preview',
+          type: 'success',
+          duration: 2000
+        });
+        router.dismiss();
+      } catch (saveErr) {
+        console.error('Save error:', saveErr);
+        showToast({ 
+          message: 'Failed to save link. Please try again.',
+          type: 'error'
+        });
+      }
+
+      console.error('Preview error:', {
+        message: err?.message || 'Unknown error',
+        url: formattedUrl,
+        stack: err?.stack,
+        response: err?.response
+      });
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.closeButton}>
+        <Pressable onPress={() => router.dismiss()} style={styles.closeButton}>
           <Text style={[styles.backText, { color: colors.primary }]}>Cancel</Text>
         </Pressable>
         <Text style={[styles.title, { color: colors.text }]}>Save New Link</Text>
@@ -102,9 +198,6 @@ export default function NewLinkScreen() {
         <Text style={[styles.label, { color: colors.text }]}>Tags</Text>
         <TagInput tags={tags} onChange={setTags} />
 
-        {error && (
-          <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
-        )}
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: colors.border }]}>
@@ -118,7 +211,12 @@ export default function NewLinkScreen() {
           disabled={isLoading}
         >
           {isLoading ? (
-            <Loader2 size={24} color={colors.text} />
+            <>
+              <Loader2 size={24} color={colors.text} />
+              <Text style={[styles.buttonText, { color: colors.text }]}>
+                {loadingType === 'preview' ? 'Loading Preview...' : 'Saving Link...'}
+              </Text>
+            </>
           ) : (
             <>
               <Plus size={24} color={colors.text} />
@@ -185,6 +283,7 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: 8,
+    color: '#ff3b30',
   },
   footer: {
     padding: 16,

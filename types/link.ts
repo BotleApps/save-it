@@ -10,11 +10,14 @@ export interface Link {
   status: 'unread' | 'reading' | 'completed';
   readingProgress: number;
   estimatedReadTime: number | null;
+  note: string | null;
+  groups: string[];
+  prompt: string | null;
+  summary: string | null;
+  response: string | null;
 }
 
 export interface LinkPreview {
   title: string;
   description: string | null;
   imageUrl: string | null;
-  estimatedReadTime: number | null;
-}

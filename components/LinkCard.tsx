@@ -48,11 +48,12 @@ export function LinkCard({ link, onPress }: LinkCardProps) {
           </Text>
         </View>
         
-        {link.description && (
-          <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={2}>
-            {link.description}
-          </Text>
-        )}
+        <Text 
+          style={[styles.description, { color: colors.textSecondary }]} 
+          numberOfLines={2}
+        >
+          {link.description || link.note || 'No description'}
+        </Text>
 
         <View style={styles.footer}>
           {link.tags.length > 0 && (
