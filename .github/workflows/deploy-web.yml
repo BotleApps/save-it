@@ -1,0 +1,52 @@
+name: Deploy Web to Vercel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Export Expo web bundle
+        env:
+          EXPO_ROUTER_APP_ROOT: app
+        run: npx expo export --platform web --output-dir dist
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_SCOPE: ${{ secrets.VERCEL_SCOPE }}
+          VERCEL_PROJECT: ${{ secrets.VERCEL_PROJECT }}
+        shell: bash
+        run: |
+          if [[ -z "$VERCEL_TOKEN" ]]; then
+            echo "VERCEL_TOKEN is not set" >&2
+            exit 1
+          fi
+
+          args=(dist --prod --yes --token "$VERCEL_TOKEN")
+
+          if [[ -n "$VERCEL_SCOPE" ]]; then
+            args+=(--scope "$VERCEL_SCOPE")
+          fi
+
+          if [[ -n "$VERCEL_PROJECT" ]]; then
+            args+=(--project "$VERCEL_PROJECT")
+          fi
+
+          npx vercel deploy "${args[@]}"
