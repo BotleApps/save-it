@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/contexts/toast';
 import { useColors } from '@/constants/colors';
+import { Platform } from 'react-native';
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -33,33 +34,66 @@ export default function RootLayout() {
     return null;
   }
 
+  // For web platform, don't use ErrorBoundary to avoid the ErrorHandler issue
+  if (Platform.OS === 'web') {
+    return (
+      <ToastProvider>
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.background,
+            },
+            headerTintColor: colors.text,
+            headerBackTitle: "Back",
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          <Stack.Screen name="link/[id]" options={{ 
+            headerShown: true,
+            title: "Link Details"
+          }} />
+          <Stack.Screen 
+            name="new-link" 
+            options={{
+              presentation: "fullScreenModal",
+              headerShown: false,
+              animation: "fade"
+            }}
+          />
+        </Stack>
+      </ToastProvider>
+    );
+  }
+
+  // For native platforms, use ErrorBoundary
   return (
     <ToastProvider>
       <ErrorBoundary>
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerTintColor: colors.text,
-          headerBackTitle: "Back",
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-        <Stack.Screen name="link/[id]" options={{ 
-          headerShown: true,
-          title: "Link Details"
-        }} />
-        <Stack.Screen 
-          name="new-link" 
-          options={{
-            presentation: "fullScreenModal",
-            headerShown: false,
-            animation: "fade"
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.background,
+            },
+            headerTintColor: colors.text,
+            headerBackTitle: "Back",
           }}
-        />
-      </Stack>
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          <Stack.Screen name="link/[id]" options={{ 
+            headerShown: true,
+            title: "Link Details"
+          }} />
+          <Stack.Screen 
+            name="new-link" 
+            options={{
+              presentation: "fullScreenModal",
+              headerShown: false,
+              animation: "fade"
+            }}
+          />
+        </Stack>
       </ErrorBoundary>
     </ToastProvider>
   );
