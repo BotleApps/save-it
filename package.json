@@ -6,7 +6,8 @@
     "start": "EXPO_ROUTER_APP_ROOT=app expo start --tunnel",
     "start-web": "expo start --web --tunnel",
     "start-web-dev": "DEBUG=expo* expo start --web --tunnel",
-    "build": "babel app -d dist --extensions \".ts,.tsx\""
+    "build": "expo export -p web",
+    "vercel-build": "expo export -p web"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

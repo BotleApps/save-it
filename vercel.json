@@ -1,7 +1,9 @@
 {
+  "buildCommand": "npm install && npx expo export -p web",
+  "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": "/"
     }
   ]
