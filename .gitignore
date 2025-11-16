@@ -14,6 +14,7 @@ yarn-error.log
 # Expo
 .expo/
 dist/
+.vercel/
 app.config.js
 app.json
 *.jks

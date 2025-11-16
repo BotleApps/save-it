@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
@@ -40,7 +40,7 @@ jobs:
             exit 1
           fi
 
-          args=(dist --prod --yes --token "$VERCEL_TOKEN")
+          args=(dist --prod --yes --token "$VERCEL_TOKEN" --prebuilt)
 
           if [[ -n "$VERCEL_SCOPE" ]]; then
             args+=(--scope "$VERCEL_SCOPE")
