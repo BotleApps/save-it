@@ -33,8 +33,8 @@ if (fs.existsSync(indexPath)) {
   <meta name="color-scheme" content="light dark">
   
   <!-- Apple Touch Icons -->
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
   
