@@ -27,7 +27,7 @@
     "web": {
       "favicon": "./assets/images/favicon.png",
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "name": "Save It",
       "shortName": "Save It",
       "description": "Save and organize your links, articles, and resources",
@@ -39,8 +39,7 @@
       "scope": "/",
       "lang": "en",
       "dir": "ltr",
-      "preferRelatedApplications": false,
-      "offline": true
+      "preferRelatedApplications": false
     },
     "plugins": [
       [
