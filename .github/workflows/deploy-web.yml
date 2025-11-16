@@ -27,6 +27,7 @@ jobs:
           EXPO_ROUTER_APP_ROOT: app
         run: |
           npx expo export --platform web --output-dir dist
+          cp -r public/* dist/
           node web-transform.js
 
       - name: Deploy to Vercel

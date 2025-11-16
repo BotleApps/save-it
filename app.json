@@ -25,7 +25,22 @@
       "package": "app.rork.save-it"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro",
+      "output": "static",
+      "name": "Save It",
+      "shortName": "Save It",
+      "description": "Save and organize your links, articles, and resources",
+      "themeColor": "#6366F1",
+      "backgroundColor": "#FFFFFF",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "scope": "/",
+      "lang": "en",
+      "dir": "ltr",
+      "preferRelatedApplications": false,
+      "offline": true
     },
     "plugins": [
       [

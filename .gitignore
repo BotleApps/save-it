@@ -16,7 +16,6 @@ yarn-error.log
 dist/
 .vercel/
 app.config.js
-app.json
 *.jks
 *.p12
 *.keystore
