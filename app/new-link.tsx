@@ -60,6 +60,46 @@ export default function NewLinkScreen() {
     }
   }, [params]);
 
+  const fetchPreview = async (formattedUrl: string) => {
+    // Try Microlink API first
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(
+        `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}`,
+        { 
+          signal: controller.signal,
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json',
+          }
+        }
+      );
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.data) {
+        const { title, description, image } = data.data;
+        return {
+          title: title || formattedUrl,
+          description: description || null,
+          imageUrl: image?.url || null,
+        };
+      }
+      
+      throw new Error('Invalid response format');
+    } catch (error) {
+      console.log('Preview fetch failed:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!url) {
       showToast({ message: 'Please enter a URL', type: 'error' });
@@ -75,34 +115,23 @@ export default function NewLinkScreen() {
     setIsLoading(true);
     setLoadingType('preview');
     
+    // Try to fetch preview
+    const preview = await fetchPreview(formattedUrl);
+    
+    setLoadingType('save');
+    
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
-      const response = await fetch(
-        `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}`,
-        { signal: controller.signal }
-      );
-      clearTimeout(timeoutId);
-      const data = await response.json();
-      
-      if (response.status !== 200 || !data.success) {
-        throw new Error('Preview API failed');
-      }
-
-      const { title = formattedUrl, description = null, image = null } = data.data || {};
-
       addTags(tags);
       addLink({
         url: formattedUrl,
-        title: title || formattedUrl,
-        description: description || null,
+        title: preview?.title || formattedUrl,
+        description: preview?.description || null,
         note: note || null,
         groups: [],
         prompt: null,
         summary: null,
         response: null,
-        imageUrl: image?.url || null,
+        imageUrl: preview?.imageUrl || null,
         tags,
         category: null,
         status: 'unread' as const,
@@ -111,50 +140,24 @@ export default function NewLinkScreen() {
       });
 
       setIsLoading(false);
+      
+      const message = preview 
+        ? 'Link saved with preview!' 
+        : 'Link saved successfully!';
+      
       showToast({ 
-        message: 'Link saved successfully!',
+        message,
         type: 'success',
         duration: 2000
       });
       router.dismiss();
-    } catch (err: any) {
-      setLoadingType('save');
-      
-      // Save without preview on error (including CORS)
-      try {
-        addTags(tags);
-        addLink({
-          url: formattedUrl,
-          title: formattedUrl,
-          description: null,
-          note: note || null,
-          groups: [],
-          prompt: null,
-          summary: null,
-          response: null,
-          imageUrl: null,
-          tags,
-          category: null,
-          status: 'unread' as const,
-          readingProgress: 0,
-          estimatedReadTime: null,
-        });
-
-        setIsLoading(false);
-        showToast({ 
-          message: 'Link saved (preview unavailable)',
-          type: 'success',
-          duration: 2000
-        });
-        router.dismiss();
-      } catch (saveErr) {
-        console.error('Save error:', saveErr);
-        setIsLoading(false);
-        showToast({ 
-          message: 'Failed to save link. Please try again.',
-          type: 'error'
-        });
-      }
+    } catch (saveErr) {
+      console.error('Save error:', saveErr);
+      setIsLoading(false);
+      showToast({ 
+        message: 'Failed to save link. Please try again.',
+        type: 'error'
+      });
     }
   };
 

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Home, Settings } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
+import { Platform } from 'react-native';
 
 export default function TabLayout() {
   const colors = useColors();
@@ -11,6 +12,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
+          paddingBottom: Platform.OS === 'web' ? 8 : 0,
+          height: Platform.OS === 'web' ? 65 : undefined,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
