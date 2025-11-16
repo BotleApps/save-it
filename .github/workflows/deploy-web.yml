@@ -25,7 +25,9 @@ jobs:
       - name: Export Expo web bundle
         env:
           EXPO_ROUTER_APP_ROOT: app
-        run: npx expo export --platform web --output-dir dist
+        run: |
+          npx expo export --platform web --output-dir dist
+          node web-transform.js
 
       - name: Deploy to Vercel
         env:
