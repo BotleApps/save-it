@@ -60,18 +60,21 @@ export function TagFilter({ selectedTags, onSelectTags }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    height: 44,
+    height: 52,
   },
   content: {
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 8,
     gap: 8,
     flexDirection: 'row',
+    alignItems: 'center',
   },
   tag: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
+    minHeight: 32,
+    justifyContent: 'center',
   },
   tagText: {
     fontSize: 14,

@@ -76,9 +76,8 @@ export default function NewLinkScreen() {
     setLoadingType('preview');
     
     try {
-      console.log('Fetching preview for:', formattedUrl);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const response = await fetch(
         `https://api.microlink.io?url=${encodeURIComponent(formattedUrl)}`,
@@ -86,25 +85,17 @@ export default function NewLinkScreen() {
       );
       clearTimeout(timeoutId);
       const data = await response.json();
-      console.log('API response:', { status: response.status, data });
       
-      if (response.status !== 200) {
-        console.log('API error - status:', response.status);
-        throw new Error(`Failed to fetch link preview: ${response.status}`);
+      if (response.status !== 200 || !data.success) {
+        throw new Error('Preview API failed');
       }
 
-      if (!data.success) {
-        console.log('API error - data:', data);
-        throw new Error('API returned error');
-      }
+      const { title = formattedUrl, description = null, image = null } = data.data || {};
 
-      console.log('Preview data:', data.data);
-      const { title = url, description = null, image = null } = data.data || {};
-
-      addTags(tags); // Add to consolidated tags list
+      addTags(tags);
       addLink({
         url: formattedUrl,
-        title: title || url,
+        title: title || formattedUrl,
         description: description || null,
         note: note || null,
         groups: [],
@@ -128,18 +119,13 @@ export default function NewLinkScreen() {
       router.dismiss();
     } catch (err: any) {
       setLoadingType('save');
-      const message = err.name === 'AbortError' 
-        ? 'Preview timed out. Saving without preview...'
-        : 'Preview failed. Saving without preview...';
-      showToast({ message, type: 'error', duration: 2000 });
-
-      // Save without preview after a brief delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Save without preview on error (including CORS)
       try {
         addTags(tags);
         addLink({
           url: formattedUrl,
-          title: url,
+          title: formattedUrl,
           description: null,
           note: note || null,
           groups: [],
@@ -154,27 +140,21 @@ export default function NewLinkScreen() {
           estimatedReadTime: null,
         });
 
-        // Dismiss after successful save
+        setIsLoading(false);
         showToast({ 
-          message: 'Link saved without preview',
+          message: 'Link saved (preview unavailable)',
           type: 'success',
           duration: 2000
         });
         router.dismiss();
       } catch (saveErr) {
         console.error('Save error:', saveErr);
+        setIsLoading(false);
         showToast({ 
           message: 'Failed to save link. Please try again.',
           type: 'error'
         });
       }
-
-      console.error('Preview error:', {
-        message: err?.message || 'Unknown error',
-        url: formattedUrl,
-        stack: err?.stack,
-        response: err?.response
-      });
     }
   };
 
