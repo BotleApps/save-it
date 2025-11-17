@@ -15,11 +15,20 @@ yarn-error.log
 .expo/
 dist/
 .vercel/
-app.config.js
 *.jks
 *.p12
 *.keystore
 *.mobileprovision
+
+# EAS
+google-service-account.json
+*.p8
+eas-credentials.json
+
+# Environment
+.env
+.env.local
+.env.production
 
 # Jest
 coverage/
