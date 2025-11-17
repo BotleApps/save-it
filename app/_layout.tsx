@@ -6,7 +6,8 @@ import { useEffect } from "react";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/contexts/toast';
 import { useColors } from '@/constants/colors';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -38,30 +39,33 @@ export default function RootLayout() {
   if (Platform.OS === 'web') {
     return (
       <ToastProvider>
-        <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: colors.background,
-            },
-            headerTintColor: colors.text,
-            headerBackTitle: "Back",
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-          <Stack.Screen name="link/[id]" options={{ 
-            headerShown: true,
-            title: "Link Details"
-          }} />
-          <Stack.Screen 
-            name="new-link" 
-            options={{
-              presentation: "fullScreenModal",
-              headerShown: false,
-              animation: "fade"
+        <View style={{ flex: 1 }}>
+          <OfflineIndicator />
+          <Stack
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: colors.background,
+              },
+              headerTintColor: colors.text,
+              headerBackTitle: "Back",
             }}
-          />
-        </Stack>
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+            <Stack.Screen name="link/[id]" options={{ 
+              headerShown: true,
+              title: "Link Details"
+            }} />
+            <Stack.Screen 
+              name="new-link" 
+              options={{
+                presentation: "fullScreenModal",
+                headerShown: false,
+                animation: "fade"
+              }}
+            />
+          </Stack>
+        </View>
       </ToastProvider>
     );
   }

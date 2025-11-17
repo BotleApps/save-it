@@ -49,15 +49,53 @@ if (fs.existsSync(indexPath)) {
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
   
-  <!-- Service Worker Registration -->
+  <!-- Service Worker Registration with Update Notification -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js')
-          .then(reg => console.log('✓ Service Worker registered:', reg.scope))
+          .then(reg => {
+            console.log('✓ Service Worker registered:', reg.scope);
+            
+            // Check for updates every hour
+            setInterval(() => {
+              reg.update();
+            }, 3600000);
+            
+            // Listen for updates
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New version available
+                    console.log('New version available! Refresh to update.');
+                  }
+                });
+              }
+            });
+          })
           .catch(err => console.error('✗ Service Worker registration failed:', err));
       });
+      
+      // Handle connection status
+      window.addEventListener('online', () => {
+        console.log('✓ Back online');
+        // Trigger background sync if supported
+        if ('sync' in ServiceWorkerRegistration.prototype) {
+          navigator.serviceWorker.ready.then(reg => {
+            return reg.sync.register('sync-links');
+          });
+        }
+      });
+      
+      window.addEventListener('offline', () => {
+        console.log('⚠ Offline mode - data saved locally');
+      });
     }
+    
+    // Log initial connection status
+    console.log(navigator.onLine ? '✓ Online' : '⚠ Offline');
   </script>
 </head>`;
   
