@@ -18,9 +18,19 @@ export function useNetworkStatus() {
       setWasOffline(true);
       
       // Register background sync if supported
-      if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
+      if (
+        'serviceWorker' in navigator &&
+        typeof ServiceWorkerRegistration !== 'undefined' &&
+        'sync' in ServiceWorkerRegistration.prototype
+      ) {
         navigator.serviceWorker.ready.then((registration) => {
-          return registration.sync.register('sync-links');
+          if ('sync' in registration) {
+            const syncRegistration = registration as ServiceWorkerRegistration & {
+              sync: { register: (tag: string) => Promise<void> };
+            };
+            return syncRegistration.sync.register('sync-links');
+          }
+          return undefined;
         }).catch((error) => {
           console.log('Background sync registration failed:', error);
         });

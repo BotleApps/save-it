@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, SafeAreaView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X, Plus, Loader2 } from 'lucide-react-native';
+import { X, Plus, Loader2, Pencil } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { useTagsStore } from '@/stores/tags';
@@ -27,6 +27,7 @@ const formatUrl = (urlString: string) => {
 export default function NewLinkScreen() {
   const colors = useColors();
   const params = useLocalSearchParams();
+  const editId = params.id as string | undefined;
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -35,18 +36,33 @@ export default function NewLinkScreen() {
   const { showToast } = useToast();
   
   const addLink = useLinksStore((state) => state.addLink);
+  const updateLink = useLinksStore((state) => state.updateLink);
+  const existingLink = useLinksStore((state) =>
+    editId ? state.getLink(editId) : undefined
+  );
+  const isEditing = Boolean(editId && existingLink);
+  const [isPrefilled, setIsPrefilled] = useState(false);
   const addTags = useTagsStore((state) => state.addTags);
 
-  // Handle Web Share Target API - populate fields from shared data
+  // Handle edit mode or share target prefill
   useEffect(() => {
-    const sharedUrl = params.url as string || '';
-    const sharedTitle = params.title as string || '';
-    const sharedText = params.text as string || '';
+    if (isPrefilled) return;
+
+    if (isEditing && existingLink) {
+      setUrl(existingLink.url);
+      setNote(existingLink.note || '');
+      setTags(existingLink.tags || []);
+      setIsPrefilled(true);
+      return;
+    }
+
+    const sharedUrl = (params.url as string) || '';
+    const sharedTitle = (params.title as string) || '';
+    const sharedText = (params.text as string) || '';
 
     if (sharedUrl) {
       setUrl(sharedUrl);
     } else if (sharedText) {
-      // Try to extract URL from text if no direct URL
       const urlMatch = sharedText.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         setUrl(urlMatch[0]);
@@ -58,7 +74,9 @@ export default function NewLinkScreen() {
     if (sharedTitle && !sharedUrl) {
       setNote(sharedTitle);
     }
-  }, [params]);
+
+    setIsPrefilled(true);
+  }, [isEditing, existingLink, params, isPrefilled]);
 
   const fetchPreview = async (formattedUrl: string) => {
     // Try Microlink API first
@@ -122,28 +140,42 @@ export default function NewLinkScreen() {
     
     try {
       addTags(tags);
-      addLink({
-        url: formattedUrl,
-        title: preview?.title || formattedUrl,
-        description: preview?.description || null,
-        note: note || null,
-        groups: [],
-        prompt: null,
-        summary: null,
-        response: null,
-        imageUrl: preview?.imageUrl || null,
-        tags,
-        category: null,
-        status: 'unread' as const,
-        readingProgress: 0,
-        estimatedReadTime: null,
-      });
+
+      if (isEditing && existingLink) {
+        updateLink(existingLink.id, {
+          url: formattedUrl,
+          note: note || null,
+          tags,
+          title: preview?.title || existingLink.title,
+          description: preview?.description ?? existingLink.description,
+          imageUrl: preview?.imageUrl ?? existingLink.imageUrl,
+        });
+      } else {
+        addLink({
+          url: formattedUrl,
+          title: preview?.title || formattedUrl,
+          description: preview?.description || null,
+          note: note || null,
+          groups: [],
+          prompt: null,
+          summary: null,
+          response: null,
+          imageUrl: preview?.imageUrl || null,
+          tags,
+          category: null,
+          status: 'unread' as const,
+          readingProgress: 0,
+          estimatedReadTime: null,
+        });
+      }
 
       setIsLoading(false);
       
-      const message = preview 
-        ? 'Link saved with preview!' 
-        : 'Link saved successfully!';
+      const message = isEditing
+        ? 'Link updated successfully!'
+        : preview
+          ? 'Link saved with preview!'
+          : 'Link saved successfully!';
       
       showToast({ 
         message,
@@ -221,14 +253,22 @@ export default function NewLinkScreen() {
             <>
               <Loader2 size={24} color={colors.text} />
               <Text style={[styles.buttonText, { color: colors.text }]}>
-                {loadingType === 'preview' ? 'Loading Preview...' : 'Saving Link...'}
+                {loadingType === 'preview'
+                  ? 'Loading Preview...'
+                  : isEditing
+                    ? 'Updating Link...'
+                    : 'Saving Link...'}
               </Text>
             </>
           ) : (
             <>
-              <Plus size={24} color={colors.text} />
+              {isEditing ? (
+                <Pencil size={24} color={colors.text} />
+              ) : (
+                <Plus size={24} color={colors.text} />
+              )}
               <Text style={[styles.buttonText, { color: colors.text }]}>
-                Save Link
+                {isEditing ? 'Update Link' : 'Save Link'}
               </Text>
             </>
           )}

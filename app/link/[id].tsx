@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Clipboard } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ExternalLink, ArrowLeft, Trash2, Copy } from 'lucide-react-native';
+import { ExternalLink, ArrowLeft, Trash2, Copy, Pencil } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 
@@ -34,6 +34,23 @@ export default function LinkDetailsScreen() {
     Linking.openURL(link.url);
   };
 
+  const handleEditLink = () => {
+    router.push({
+      pathname: '/new-link',
+      params: { id: link.id },
+    });
+  };
+
+  const displayUrl = (() => {
+    try {
+      const parsed = new URL(link.url);
+      const path = parsed.pathname === '/' ? '' : parsed.pathname;
+      return `${parsed.hostname}${path}`;
+    } catch {
+      return link.url;
+    }
+  })();
+
   return (
     <>
       <Stack.Screen
@@ -45,9 +62,20 @@ export default function LinkDetailsScreen() {
             </Pressable>
           ),
           headerRight: () => (
-            <Pressable onPress={handleDelete} style={styles.headerButton}>
-              <Trash2 size={24} color={colors.error} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={handleOpenLink} style={styles.headerButton}>
+                <ExternalLink size={22} color={colors.text} />
+              </Pressable>
+              <Pressable onPress={handleCopyLink} style={styles.headerButton}>
+                <Copy size={22} color={colors.text} />
+              </Pressable>
+              <Pressable onPress={handleEditLink} style={styles.headerButton}>
+                <Pencil size={22} color={colors.text} />
+              </Pressable>
+              <Pressable onPress={handleDelete} style={styles.headerButton}>
+                <Trash2 size={22} color={colors.error} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -86,25 +114,17 @@ export default function LinkDetailsScreen() {
             </>
           )}
 
-          <Pressable 
-            style={[styles.linkButton, { backgroundColor: colors.primary }]} 
-            onPress={handleOpenLink}
-          >
-            <ExternalLink size={20} color={colors.text} />
-            <Text style={[styles.linkButtonText, { color: colors.text }]}>
-              Open Link
-            </Text>
-          </Pressable>
-
-          <Pressable 
-            style={[styles.linkButton, { backgroundColor: colors.primary }]} 
-            onPress={handleCopyLink}
-          >
-            <Copy size={20} color={colors.text} />
-            <Text style={[styles.linkButtonText, { color: colors.text }]}>
-              Copy Link
-            </Text>
-          </Pressable>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Link</Text>
+            <Pressable onPress={handleOpenLink} style={[styles.urlPill, { borderColor: colors.border }]}> 
+              <Text
+                style={[styles.urlText, { color: colors.primary }]}
+                numberOfLines={2}
+              >
+                {displayUrl}
+              </Text>
+            </Pressable>
+          </View>
 
           {link.tags.length > 0 && (
             <View style={styles.tags}>
@@ -133,6 +153,10 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   image: {
     width: '100%',
     height: 200,
@@ -157,18 +181,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  linkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
+  urlPill: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 8,
-    gap: 8,
-    marginBottom: 24,
+    borderWidth: 1,
   },
-  linkButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  urlText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   tags: {
     flexDirection: 'row',
