@@ -8,6 +8,7 @@ import { ToastProvider } from '@/contexts/toast';
 import { useColors } from '@/constants/colors';
 import { Platform, View } from 'react-native';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { useReadingReminders } from '@/hooks/use-reading-reminders';
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -17,6 +18,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colors = useColors();
+  useReadingReminders();
   const [loaded, error] = useFonts({
     ...FontAwesome.font,
   });

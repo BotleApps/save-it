@@ -1,10 +1,21 @@
-import { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Clipboard } from 'react-native';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Linking,
+  Clipboard,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ExternalLink, ArrowLeft, Trash2, Copy, Pencil } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
+import { ReadingProgressBar } from '@/components/ReadingProgressBar';
 
 export default function LinkDetailsScreen() {
   const colors = useColors();
@@ -12,12 +23,22 @@ export default function LinkDetailsScreen() {
   const router = useRouter();
   const link = useLinksStore((state) => state.getLink(id as string));
   const removeLink = useLinksStore((state) => state.removeLink);
+  const updateLink = useLinksStore((state) => state.updateLink);
+  const progressRef = useRef(link?.readingProgress ?? 0);
+  const [currentProgress, setCurrentProgress] = useState(progressRef.current);
 
   useEffect(() => {
     if (!link) {
       router.replace('/');
     }
   }, [link, router]);
+
+  useEffect(() => {
+    if (typeof link?.readingProgress === 'number') {
+      progressRef.current = link.readingProgress;
+      setCurrentProgress(link.readingProgress);
+    }
+  }, [link?.readingProgress]);
 
   if (!link) return null;
 
@@ -51,6 +72,43 @@ export default function LinkDetailsScreen() {
     }
   })();
 
+  const statusLabel = useMemo(() => {
+    switch (link.status) {
+      case 'reading':
+        return 'In progress';
+      case 'completed':
+        return 'Completed';
+      default:
+        return 'Queued';
+    }
+  }, [link.status]);
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      if (!contentSize || contentSize.height <= 0) {
+        return;
+      }
+      const viewportBottom = contentOffset.y + layoutMeasurement.height;
+      const rawProgress = viewportBottom / contentSize.height;
+      const clamped = Math.min(1, Math.max(0, rawProgress));
+
+      if (clamped <= progressRef.current + 0.015) {
+        return;
+      }
+
+      progressRef.current = clamped;
+      setCurrentProgress(clamped);
+
+      const nextStatus = clamped >= 0.98 ? 'completed' : clamped > 0.05 ? 'reading' : 'unread';
+      updateLink(link.id, {
+        readingProgress: clamped,
+        status: nextStatus,
+      });
+    },
+    [link.id, updateLink]
+  );
+
   return (
     <>
       <Stack.Screen
@@ -80,7 +138,12 @@ export default function LinkDetailsScreen() {
         }}
       />
       
-      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+      >
         {link.imageUrl && (
           <Image
             source={{ uri: link.imageUrl }}
@@ -91,6 +154,12 @@ export default function LinkDetailsScreen() {
 
         <View style={styles.content}>
           <Text style={[styles.title, { color: colors.text }]}>{link.title}</Text>
+          <View style={styles.progressHeader}>
+            <View style={[styles.statusBadge, { backgroundColor: colors.cardHover }]}> 
+              <Text style={[styles.statusText, { color: colors.text }]}>{statusLabel}</Text>
+            </View>
+            <ReadingProgressBar progress={currentProgress} variant="large" />
+          </View>
           
           {(link.description || link.note) && (
             <>
@@ -150,6 +219,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 48,
+  },
   headerButton: {
     padding: 8,
   },
@@ -168,6 +240,21 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  progressHeader: {
+    marginBottom: 24,
+    gap: 12,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   section: {
     marginBottom: 24,

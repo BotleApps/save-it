@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from '@/types/link';
 import { Clock, BookOpen, CheckCircle2 } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
+import { ReadingProgressBar } from '@/components/ReadingProgressBar';
 
 interface LinkCardProps {
   link: Link;
@@ -98,6 +99,11 @@ export function LinkCard({ link, onPress }: LinkCardProps) {
               <Text style={styles.metaText}>+{link.tags.length - 1} tags</Text>
             )}
           </View>
+          {(link.readingProgress ?? 0) > 0 && (
+            <View style={styles.progressSection}>
+              <ReadingProgressBar progress={link.readingProgress ?? 0} />
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -161,5 +167,8 @@ const styles = StyleSheet.create({
   metaText: {
     color: '#fff',
     fontSize: 12,
+  },
+  progressSection: {
+    marginTop: 12,
   },
 });
