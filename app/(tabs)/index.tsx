@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import { LinkCard } from '@/components/LinkCard';
@@ -58,13 +58,25 @@ export default function LinksScreen() {
       
       <FlatList
         data={filteredLinks}
-        renderItem={({ item }) => (
-          <LinkCard
-            link={item}
-            onPress={() => router.push(`/link/${item.id}`)}
-          />
-        )}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.column}
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <View style={styles.cardWrapper}>
+            <LinkCard
+              link={item}
+              onPress={() => router.push(`/link/${item.id}`)}
+            />
+          </View>
+        )}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No links yet</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Save your first link to see it here.</Text>
+          </View>
+        )}
       />
 
       <FloatingButton
@@ -80,6 +92,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+  },
+  column: {
+    gap: 16,
+  },
+  cardWrapper: {
+    flex: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  emptySubtitle: {
+    fontSize: 14,
   },
 });
