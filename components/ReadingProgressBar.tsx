@@ -20,7 +20,7 @@ export const ReadingProgressBar = memo(({ progress, variant = 'small' }: Reading
 
   const height = variant === 'large' ? 10 : 6;
   const borderRadius = height / 2;
-  const progressPercent = `${safeProgress * 100}%`;
+  const progressPercent = `${Math.round(safeProgress * 100)}%` as `${number}%`;
 
   if (variant === 'small' && safeProgress <= 0) {
     return null;

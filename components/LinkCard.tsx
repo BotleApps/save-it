@@ -28,7 +28,7 @@ export function LinkCard({ link, onPress }: LinkCardProps) {
   const [imageError, setImageError] = useState(false);
   const hasImage = Boolean(link.imageUrl) && !imageError;
   const gradientPalette = useMemo(() => {
-    const gradients = [
+    const gradients: ReadonlyArray<[string, string]> = [
       ['#f472b6', '#c084fc'],
       ['#60a5fa', '#818cf8'],
       ['#f97316', '#facc15'],
