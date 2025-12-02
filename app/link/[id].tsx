@@ -12,10 +12,13 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ExternalLink, ArrowLeft, Trash2, Copy, Pencil } from 'lucide-react-native';
+import { ExternalLink, ArrowLeft, Trash2, Copy, Pencil, AlignLeft, GalleryHorizontal, MoreHorizontal, Loader2 } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { ReadingProgressBar } from '@/components/ReadingProgressBar';
+import { CardsReader } from '@/components/CardsReader';
+import { useToast } from '@/contexts/toast';
+import * as Haptics from 'expo-haptics';
 
 export default function LinkDetailsScreen() {
   const colors = useColors();
@@ -26,12 +29,50 @@ export default function LinkDetailsScreen() {
   const updateLink = useLinksStore((state) => state.updateLink);
   const progressRef = useRef(link?.readingProgress ?? 0);
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
+  const [readingMode, setReadingMode] = useState<'normal' | 'cards'>('normal');
+  const [isFetchingContent, setIsFetchingContent] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!link) {
       router.replace('/');
+      return;
     }
-  }, [link, router]);
+
+    const fetchPageContent = async () => {
+      if (link.content || isFetchingContent) return;
+      
+      setIsFetchingContent(true);
+      try {
+        const response = await fetch(link.url);
+        const html = await response.text();
+        
+        // Naive HTML to text extraction
+        let text = html
+          .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
+          .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
+          .replace(/<\/?[^>]+(>|$)/g, " ") // Replace tags with space
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim();
+        
+        if (text.length > 50) {
+          updateLink(link.id, { content: text });
+        }
+      } catch (error) {
+        console.log('Failed to fetch content:', error);
+      } finally {
+        setIsFetchingContent(false);
+      }
+    };
+
+    fetchPageContent();
+  }, [link?.id, link?.url]);
 
   useEffect(() => {
     if (typeof link?.readingProgress === 'number') {
@@ -43,12 +84,16 @@ export default function LinkDetailsScreen() {
   if (!link) return null;
 
   const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     removeLink(link.id);
+    showToast({ message: 'Link deleted', type: 'success' });
     router.replace('/');
   };
 
   const handleCopyLink = () => {
     Clipboard.setString(link.url);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast({ message: 'Link copied to clipboard!', type: 'success' });
   };
 
   const handleOpenLink = () => {
@@ -109,6 +154,29 @@ export default function LinkDetailsScreen() {
     [link.id, updateLink]
   );
 
+  const handleCardsProgress = useCallback(
+    (progress: number) => {
+      if (progress <= progressRef.current + 0.01) return;
+      
+      progressRef.current = progress;
+      setCurrentProgress(progress);
+      
+      const nextStatus = progress >= 0.98 ? 'completed' : progress > 0.05 ? 'reading' : 'unread';
+      updateLink(link.id, {
+        readingProgress: progress,
+        status: nextStatus,
+      });
+    },
+    [link.id, updateLink]
+  );
+
+  const toggleReadingMode = () => {
+    setReadingMode((prev) => (prev === 'normal' ? 'cards' : 'normal'));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const combinedContent = link.content || [link.description, link.note].filter(Boolean).join(' ');
+
   return (
     <>
       <Stack.Screen
@@ -121,29 +189,44 @@ export default function LinkDetailsScreen() {
           ),
           headerRight: () => (
             <View style={styles.headerActions}>
+              {isFetchingContent && (
+                <View style={styles.headerButton}>
+                  <Loader2 size={20} color={colors.textSecondary} />
+                </View>
+              )}
+              <Pressable
+                onPress={toggleReadingMode}
+                style={styles.headerButton}
+              >
+                {readingMode === 'normal' ? (
+                  <GalleryHorizontal size={22} color={colors.text} />
+                ) : (
+                  <AlignLeft size={22} color={colors.text} />
+                )}
+              </Pressable>
               <Pressable onPress={handleOpenLink} style={styles.headerButton}>
                 <ExternalLink size={22} color={colors.text} />
               </Pressable>
-              <Pressable onPress={handleCopyLink} style={styles.headerButton}>
-                <Copy size={22} color={colors.text} />
-              </Pressable>
-              <Pressable onPress={handleEditLink} style={styles.headerButton}>
-                <Pencil size={22} color={colors.text} />
-              </Pressable>
-              <Pressable onPress={handleDelete} style={styles.headerButton}>
-                <Trash2 size={22} color={colors.error} />
+              <Pressable
+                onPress={() => setShowMoreActions(!showMoreActions)}
+                style={styles.headerButton}
+              >
+                <MoreHorizontal size={22} color={colors.text} />
               </Pressable>
             </View>
           ),
         }}
       />
       
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.scrollContent}
-        scrollEventThrottle={16}
-        onScroll={handleScroll}
-      >
+      {readingMode === 'cards' ? (
+        <CardsReader content={combinedContent} onProgressUpdate={handleCardsProgress} />
+      ) : (
+        <ScrollView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          contentContainerStyle={styles.scrollContent}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}
+        >
         {link.imageUrl && (
           <Image
             source={{ uri: link.imageUrl }}
@@ -210,7 +293,40 @@ export default function LinkDetailsScreen() {
             </View>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
+
+      {showMoreActions && (
+        <Pressable 
+          style={styles.overlay} 
+          onPress={() => setShowMoreActions(false)}
+        >
+          <View style={[styles.actionMenu, { backgroundColor: colors.card }]}>
+            <Pressable 
+              style={styles.actionItem} 
+              onPress={() => { handleCopyLink(); setShowMoreActions(false); }}
+            >
+              <Copy size={20} color={colors.text} />
+              <Text style={[styles.actionText, { color: colors.text }]}>Copy Link</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.actionItem} 
+              onPress={() => { handleEditLink(); setShowMoreActions(false); }}
+            >
+              <Pencil size={20} color={colors.text} />
+              <Text style={[styles.actionText, { color: colors.text }]}>Edit</Text>
+            </Pressable>
+            <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+            <Pressable 
+              style={styles.actionItem} 
+              onPress={() => { handleDelete(); setShowMoreActions(false); }}
+            >
+              <Trash2 size={20} color={colors.error} />
+              <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
     </>
   );
 }
@@ -290,5 +406,42 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 14,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: 16,
+  },
+  actionMenu: {
+    borderRadius: 12,
+    padding: 8,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+    borderRadius: 8,
+  },
+  actionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  actionDivider: {
+    height: 1,
+    marginVertical: 4,
   },
 });

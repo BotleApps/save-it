@@ -166,6 +166,7 @@ export default function NewLinkScreen() {
           status: 'unread' as const,
           readingProgress: 0,
           estimatedReadTime: null,
+          content: null,
         });
       }
 

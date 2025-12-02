@@ -15,6 +15,7 @@ export interface Link {
   prompt: string | null;
   summary: string | null;
   response: string | null;
+  content: string | null;
 }
 
 export interface LinkPreview {

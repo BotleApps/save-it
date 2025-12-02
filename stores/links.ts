@@ -20,6 +20,7 @@ export const useLinksStore = create<LinksState>()(
           ...linkData,
           id: Math.random().toString(36).slice(2),
           createdAt: new Date().toISOString(),
+          content: null,
         };
         set((state) => ({ links: [link, ...state.links] }));
       },

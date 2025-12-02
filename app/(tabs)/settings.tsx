@@ -1,5 +1,5 @@
-import { View, StyleSheet, Text, ScrollView, Switch, Pressable, Share, Platform } from 'react-native';
-import { Download, Bell, Moon, Sun } from 'lucide-react-native';
+import { View, StyleSheet, Text, ScrollView, Switch, Pressable, Share, Platform, Alert } from 'react-native';
+import { Download, Bell, Moon, Sun, Upload, BarChart3 } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { useThemeStore, useTheme } from '@/constants/colors';
@@ -12,9 +12,16 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const { theme: themePreference, setTheme } = useThemeStore();
   const links = useLinksStore((state) => state.links);
+  const addLink = useLinksStore((state) => state.addLink);
   const { enabled, reminderTime, setEnabled, setReminderTime } = useReminderStore();
   const { showToast } = useToast();
   const reminderOptions = ['08:00', '12:30', '20:00'];
+
+  // Reading stats
+  const totalLinks = links.length;
+  const completedLinks = links.filter(l => l.status === 'completed').length;
+  const readingLinks = links.filter(l => l.status === 'reading').length;
+  const unreadLinks = links.filter(l => l.status === 'unread').length;
 
   const handleExport = async () => {
     try {
@@ -57,8 +64,88 @@ export default function SettingsScreen() {
     setEnabled(value);
   };
 
+  const handleImport = () => {
+    Alert.prompt(
+      'Import Links',
+      'Paste your exported JSON data:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Import',
+          onPress: (jsonData) => {
+            if (!jsonData) return;
+            try {
+              const importedLinks = JSON.parse(jsonData);
+              if (!Array.isArray(importedLinks)) {
+                throw new Error('Invalid format');
+              }
+              let importedCount = 0;
+              importedLinks.forEach((link: any) => {
+                if (link.url && link.title) {
+                  addLink({
+                    url: link.url,
+                    title: link.title,
+                    description: link.description || null,
+                    imageUrl: link.imageUrl || null,
+                    tags: link.tags || [],
+                    category: link.category || null,
+                    status: link.status || 'unread',
+                    readingProgress: link.readingProgress || 0,
+                    estimatedReadTime: link.estimatedReadTime || null,
+                    note: link.note || null,
+                    groups: link.groups || [],
+                    prompt: link.prompt || null,
+                    summary: link.summary || null,
+                    response: link.response || null,
+                    content: link.content || null,
+                  });
+                  importedCount++;
+                }
+              });
+              showToast({
+                message: `Successfully imported ${importedCount} links!`,
+                type: 'success',
+              });
+            } catch (error) {
+              showToast({
+                message: 'Invalid JSON format. Please check your data.',
+                type: 'error',
+              });
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.primary }]}>Reading Stats</Text>
+        <View style={[styles.statsContainer, { backgroundColor: colors.card }]}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{totalLinks}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{unreadLinks}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Unread</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{readingLinks}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Reading</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{completedLinks}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Done</Text>
+          </View>
+        </View>
+      </View>
+
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.primary }]}>Appearance</Text>
         <View style={[styles.setting, { backgroundColor: colors.card }]}>
@@ -147,6 +234,15 @@ export default function SettingsScreen() {
             <Text style={[styles.settingText, { color: colors.text }]}>Export Links</Text>
           </View>
         </Pressable>
+        <Pressable 
+          style={[styles.setting, { backgroundColor: colors.card }]} 
+          onPress={handleImport}
+        >
+          <View style={styles.settingInfo}>
+            <Upload size={20} color={colors.text} />
+            <Text style={[styles.settingText, { color: colors.text }]}>Import Links</Text>
+          </View>
+        </Pressable>
       </View>
 
       <Text style={[styles.version, { color: colors.textSecondary }]}>Version 1.0.0</Text>
@@ -217,5 +313,28 @@ const styles = StyleSheet.create({
   reminderHelper: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    padding: 16,
+    borderRadius: 12,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  statLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
   },
 });
