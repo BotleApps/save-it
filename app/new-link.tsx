@@ -10,7 +10,7 @@ import { useToast } from '@/contexts/toast';
 
 const isValidUrl = (urlString: string) => {
   try {
-    const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w-./?%&=]*)?$/i;
+    const urlPattern = /^(https?:\/\/)?([\/w-]+\.)+[\w-]+(\/[\w-./?%&=@]*)?$/i;
     return urlPattern.test(urlString);
   } catch {
     return false;
@@ -78,6 +78,36 @@ export default function NewLinkScreen() {
     setIsPrefilled(true);
   }, [isEditing, existingLink, params, isPrefilled]);
 
+  const fetchPageContent = async (url: string) => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      const html = await response.text();
+      
+      // Extract text content from HTML
+      let text = html
+        .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
+        .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
+        .replace(/<\/?[^>]+(>|$)/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/\s+/g, " ")
+        .trim();
+      
+      return text.length > 50 ? text : null;
+    } catch (error) {
+      console.log('Content fetch failed:', error);
+      return null;
+    }
+  };
+
   const fetchPreview = async (formattedUrl: string) => {
     // Try Microlink API first
     try {
@@ -133,8 +163,11 @@ export default function NewLinkScreen() {
     setIsLoading(true);
     setLoadingType('preview');
     
-    // Try to fetch preview
-    const preview = await fetchPreview(formattedUrl);
+    // Try to fetch preview and content in parallel
+    const [preview, content] = await Promise.all([
+      fetchPreview(formattedUrl),
+      fetchPageContent(formattedUrl)
+    ]);
     
     setLoadingType('save');
     
@@ -149,6 +182,7 @@ export default function NewLinkScreen() {
           title: preview?.title || existingLink.title,
           description: preview?.description ?? existingLink.description,
           imageUrl: preview?.imageUrl ?? existingLink.imageUrl,
+          content: content ?? existingLink.content,
         });
       } else {
         addLink({
@@ -166,7 +200,7 @@ export default function NewLinkScreen() {
           status: 'unread' as const,
           readingProgress: 0,
           estimatedReadTime: null,
-          content: null,
+          content: content,
         });
       }
 
