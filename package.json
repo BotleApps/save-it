@@ -9,7 +9,7 @@
     "start-web": "expo start --web --tunnel",
     "start-web-dev": "DEBUG=expo* expo start --web --tunnel",
     "build": "expo export -p web",
-    "vercel-build": "expo export -p web && cp -r public/* dist/",
+    "vercel-build": "npx expo export --platform web --output-dir dist && cp -r public/* dist/",
     "prebuild": "npx expo prebuild",
     "prebuild:clean": "npx expo prebuild --clean",
     "build:ios": "eas build --platform ios --profile production",
