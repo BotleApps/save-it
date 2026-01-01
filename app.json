@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.save-it"
+      "package": "app.rork.saveit"
     },
     "web": {
       "favicon": "./assets/images/favicon.png",

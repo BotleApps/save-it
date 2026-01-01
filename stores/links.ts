@@ -9,7 +9,17 @@ interface LinksState {
   removeLink: (id: string) => void;
   updateLink: (id: string, link: Partial<Link>) => void;
   getLink: (id: string) => Link | undefined;
+  clearAllLinks: () => void;
+  exportLinks: () => Link[];
+  importLinks: (links: Link[]) => void;
 }
+
+// Generate a more robust unique ID
+const generateId = (): string => {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).slice(2, 10);
+  return `${timestamp}-${randomPart}`;
+};
 
 export const useLinksStore = create<LinksState>()(
   persist(
@@ -18,7 +28,7 @@ export const useLinksStore = create<LinksState>()(
       addLink: (linkData) => {
         const link: Link = {
           ...linkData,
-          id: Math.random().toString(36).slice(2),
+          id: generateId(),
           createdAt: new Date().toISOString(),
           content: null,
         };
@@ -38,6 +48,20 @@ export const useLinksStore = create<LinksState>()(
       },
       getLink: (id) => {
         return get().links.find((link) => link.id === id);
+      },
+      clearAllLinks: () => {
+        set({ links: [] });
+      },
+      exportLinks: () => {
+        return get().links;
+      },
+      importLinks: (importedLinks) => {
+        set((state) => {
+          // Merge imported links, avoiding duplicates by URL
+          const existingUrls = new Set(state.links.map(l => l.url));
+          const newLinks = importedLinks.filter(l => !existingUrls.has(l.url));
+          return { links: [...newLinks, ...state.links] };
+        });
       },
     }),
     {

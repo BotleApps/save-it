@@ -1,4 +1,6 @@
 // This file allows dynamic configuration based on environment
+const EAS_PROJECT_ID = '14417b13-22df-49b2-9fba-3d9ac38e5544';
+
 module.exports = ({ config }) => {
   const isProduction = process.env.APP_ENV === 'production';
   
@@ -19,7 +21,7 @@ module.exports = ({ config }) => {
     
     android: {
       ...config.android,
-      package: config.android?.package || 'app.rork.save-it',
+      package: config.android?.package || 'app.rork.saveit',
       versionCode: parseInt(process.env.BUILD_NUMBER || '1', 10),
       permissions: [
         'INTERNET',
@@ -32,12 +34,12 @@ module.exports = ({ config }) => {
       environment: process.env.APP_ENV || 'development',
       apiUrl: process.env.API_URL || 'https://save-it-chi.vercel.app',
       eas: {
-        projectId: process.env.EAS_PROJECT_ID || '',
+        projectId: EAS_PROJECT_ID,
       },
     },
     
     updates: {
-      url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID || ''}`,
+      url: `https://u.expo.dev/${EAS_PROJECT_ID}`,
     },
     
     runtimeVersion: {

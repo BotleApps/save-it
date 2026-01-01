@@ -1,17 +1,20 @@
 {
-  "name": "expo-app",
+  "name": "save-it",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "Save and organize your links, articles, and resources",
+  "author": "BotleApps",
   "scripts": {
     "start": "EXPO_ROUTER_APP_ROOT=app expo start --tunnel",
     "start-web": "expo start --web --tunnel",
     "start-web-dev": "DEBUG=expo* expo start --web --tunnel",
     "build": "expo export -p web",
-    "vercel-build": "expo export -p web",
+    "vercel-build": "expo export -p web && cp -r public/* dist/",
     "prebuild": "npx expo prebuild",
     "prebuild:clean": "npx expo prebuild --clean",
     "build:ios": "eas build --platform ios --profile production",
     "build:android": "eas build --platform android --profile production",
+    "build:android:preview": "eas build --platform android --profile preview",
     "build:all": "eas build --platform all --profile production",
     "build:preview": "eas build --platform all --profile preview",
     "build:local:android": "./build-android-local.sh",
@@ -19,7 +22,12 @@
     "build:local:ios": "./build-ios-local.sh",
     "submit:ios": "eas submit --platform ios --latest",
     "submit:android": "eas submit --platform android --latest",
-    "update": "eas update --branch production"
+    "update": "eas update --branch production",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -73,5 +81,8 @@
     "ts-jest": "^29.3.4",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
