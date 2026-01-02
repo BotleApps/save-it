@@ -1,44 +1,77 @@
-import { Tabs } from 'expo-router';
-import { Home, Settings } from 'lucide-react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { Settings, ArrowLeft } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
-import { Platform } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 
 export default function TabLayout() {
   const colors = useColors();
+  const router = useRouter();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          paddingBottom: Platform.OS === 'web' ? 8 : 0,
-          height: Platform.OS === 'web' ? 65 : undefined,
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        // Hide bottom tab bar completely
+        tabBarStyle: { display: 'none' },
         headerStyle: {
           backgroundColor: colors.background,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
         },
         headerTitleStyle: {
           color: colors.text,
+          fontSize: 17,
+          fontWeight: '600',
         },
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Save It',
-          tabBarIcon: ({ color }) => <Home size={24} color={color} />,
+          headerTitle: 'Save It',
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push('/settings')}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && { opacity: 0.6 }
+              ]}
+            >
+              <Settings size={22} color={colors.text} strokeWidth={2} />
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          headerTitle: 'Settings',
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [
+                styles.headerButtonLeft,
+                pressed && { opacity: 0.6 }
+              ]}
+            >
+              <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
+            </Pressable>
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  headerButtonLeft: {
+    marginLeft: 16,
+    padding: 4,
+  },
+});

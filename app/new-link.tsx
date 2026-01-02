@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, SafeAreaView, Platform, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { X, Plus, Loader2, Pencil } from 'lucide-react-native';
+import { X, Plus, Loader2, Pencil, Link as LinkIcon, FileText, Tag } from 'lucide-react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { useTagsStore } from '@/stores/tags';
 import { TagInput } from '@/components/TagInput';
 import { useToast } from '@/contexts/toast';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const isValidUrl = (urlString: string) => {
   try {
-    const urlPattern = /^(https?:\/\/)?([\/w-]+\.)+[\w-]+(\/[\w-./?%&=@]*)?$/i;
-    return urlPattern.test(urlString);
+    // Use URL constructor for robust validation
+    const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`);
+    // Check for valid hostname (must have at least one dot for TLD)
+    return url.hostname.includes('.') && url.hostname.length > 2;
   } catch {
     return false;
   }
@@ -33,6 +36,8 @@ export default function NewLinkScreen() {
   const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingType, setLoadingType] = useState<'preview' | 'save' | null>(null);
+  const [urlFocused, setUrlFocused] = useState(false);
+  const [noteFocused, setNoteFocused] = useState(false);
   const { showToast } = useToast();
   
   const addLink = useLinksStore((state) => state.addLink);
@@ -44,7 +49,6 @@ export default function NewLinkScreen() {
   const [isPrefilled, setIsPrefilled] = useState(false);
   const addTags = useTagsStore((state) => state.addTags);
 
-  // Handle edit mode or share target prefill
   useEffect(() => {
     if (isPrefilled) return;
 
@@ -88,7 +92,6 @@ export default function NewLinkScreen() {
       
       const html = await response.text();
       
-      // Extract text content from HTML
       let text = html
         .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
         .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
@@ -109,7 +112,6 @@ export default function NewLinkScreen() {
   };
 
   const fetchPreview = async (formattedUrl: string) => {
-    // Try Microlink API first
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -163,7 +165,6 @@ export default function NewLinkScreen() {
     setIsLoading(true);
     setLoadingType('preview');
     
-    // Try to fetch preview and content in parallel
     const [preview, content] = await Promise.all([
       fetchPreview(formattedUrl),
       fetchPageContent(formattedUrl)
@@ -207,10 +208,10 @@ export default function NewLinkScreen() {
       setIsLoading(false);
       
       const message = isEditing
-        ? 'Link updated successfully!'
+        ? 'Link updated!'
         : preview
           ? 'Link saved with preview!'
-          : 'Link saved successfully!';
+          : 'Link saved!';
       
       showToast({ 
         message,
@@ -222,7 +223,7 @@ export default function NewLinkScreen() {
       console.error('Save error:', saveErr);
       setIsLoading(false);
       showToast({ 
-        message: 'Failed to save link. Please try again.',
+        message: 'Failed to save. Please try again.',
         type: 'error'
       });
     }
@@ -230,85 +231,139 @@ export default function NewLinkScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.dismiss()} style={styles.closeButton}>
-          <Text style={[styles.backText, { color: colors.primary }]}>Cancel</Text>
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]}>Save New Link</Text>
-        <View style={styles.headerRight} />
-      </View>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Pressable 
+            onPress={() => router.dismiss()} 
+            style={({ pressed }) => [styles.closeButton, pressed && { opacity: 0.6 }]}
+          >
+            <X size={24} color={colors.textSecondary} strokeWidth={2} />
+          </Pressable>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {isEditing ? 'Edit Link' : 'Save Link'}
+          </Text>
+          <View style={styles.headerRight} />
+        </View>
 
-      <ScrollView style={styles.content}>
-        <Text style={[styles.label, { color: colors.text }]}>URL</Text>
-        <TextInput
-          style={[styles.input, { 
-            backgroundColor: colors.card,
-            color: colors.text,
-          }]}
-          value={url}
-          onChangeText={setUrl}
-          placeholder="Enter URL"
-          placeholderTextColor={colors.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
-
-        <Text style={[styles.label, { color: colors.text }]}>Note (optional)</Text>
-        <TextInput
-          style={[
-            styles.input,
-            styles.textArea,
-            { backgroundColor: colors.card, color: colors.text }
-          ]}
-          value={note}
-          onChangeText={setNote}
-          placeholder="Add a note..."
-          placeholderTextColor={colors.textSecondary}
-          multiline
-          numberOfLines={4}
-        />
-
-        <Text style={[styles.label, { color: colors.text }]}>Tags</Text>
-        <TagInput tags={tags} onChange={setTags} />
-
-      </ScrollView>
-
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <Pressable
-          style={[
-            styles.button,
-            { backgroundColor: colors.primary },
-            isLoading && styles.buttonDisabled
-          ]}
-          onPress={handleSubmit}
-          disabled={isLoading}
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {isLoading ? (
-            <>
-              <Loader2 size={24} color={colors.text} />
-              <Text style={[styles.buttonText, { color: colors.text }]}>
-                {loadingType === 'preview'
-                  ? 'Loading Preview...'
-                  : isEditing
-                    ? 'Updating Link...'
-                    : 'Saving Link...'}
-              </Text>
-            </>
-          ) : (
-            <>
-              {isEditing ? (
-                <Pencil size={24} color={colors.text} />
+          {/* URL Input */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <LinkIcon size={16} color={colors.primary} strokeWidth={2} />
+              <Text style={[styles.label, { color: colors.text }]}>URL</Text>
+            </View>
+            <TextInput
+              style={[
+                styles.input, 
+                { 
+                  backgroundColor: colors.inputBackground,
+                  color: colors.text,
+                  borderColor: urlFocused ? colors.inputFocused : colors.inputBorder,
+                }
+              ]}
+              value={url}
+              onChangeText={setUrl}
+              placeholder="https://example.com/article"
+              placeholderTextColor={colors.textTertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              onFocus={() => setUrlFocused(true)}
+              onBlur={() => setUrlFocused(false)}
+              selectionColor={colors.primary}
+            />
+          </View>
+
+          {/* Note Input */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <FileText size={16} color={colors.primary} strokeWidth={2} />
+              <Text style={[styles.label, { color: colors.text }]}>Note</Text>
+              <Text style={[styles.optional, { color: colors.textTertiary }]}>Optional</Text>
+            </View>
+            <TextInput
+              style={[
+                styles.input,
+                styles.textArea,
+                { 
+                  backgroundColor: colors.inputBackground, 
+                  color: colors.text,
+                  borderColor: noteFocused ? colors.inputFocused : colors.inputBorder,
+                }
+              ]}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Add a personal note..."
+              placeholderTextColor={colors.textTertiary}
+              multiline
+              numberOfLines={4}
+              onFocus={() => setNoteFocused(true)}
+              onBlur={() => setNoteFocused(false)}
+              selectionColor={colors.primary}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Tags Input */}
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Tag size={16} color={colors.primary} strokeWidth={2} />
+              <Text style={[styles.label, { color: colors.text }]}>Tags</Text>
+              <Text style={[styles.optional, { color: colors.textTertiary }]}>Optional</Text>
+            </View>
+            <TagInput tags={tags} onChange={setTags} />
+          </View>
+        </ScrollView>
+
+        {/* Footer */}
+        <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              isLoading && styles.buttonDisabled,
+              pressed && !isLoading && { opacity: 0.9, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={handleSubmit}
+            disabled={isLoading}
+          >
+            <LinearGradient
+              colors={isLoading ? [colors.buttonDisabled, colors.buttonDisabled] : [colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.buttonGradient}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={20} color={colors.textOnPrimary} />
+                  <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
+                    {loadingType === 'preview' ? 'Fetching preview...' : 'Saving...'}
+                  </Text>
+                </>
               ) : (
-                <Plus size={24} color={colors.text} />
+                <>
+                  {isEditing ? (
+                    <Pencil size={20} color={colors.textOnPrimary} strokeWidth={2.5} />
+                  ) : (
+                    <Plus size={20} color={colors.textOnPrimary} strokeWidth={2.5} />
+                  )}
+                  <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
+                    {isEditing ? 'Update Link' : 'Save Link'}
+                  </Text>
+                </>
               )}
-              <Text style={[styles.buttonText, { color: colors.text }]}>
-                {isEditing ? 'Update Link' : 'Save Link'}
-              </Text>
-            </>
-          )}
-        </Pressable>
-      </View>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -321,69 +376,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
+    height: 56,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    textAlign: 'center',
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: -1,
   },
   closeButton: {
-    paddingHorizontal: 16,
-    height: '100%',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-  backText: {
-    fontSize: 17,
-    fontWeight: '400',
+    marginLeft: -8,
   },
   headerRight: {
-    width: 72,
+    width: 40,
   },
   content: {
-    padding: 16,
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+    gap: 24,
+  },
+  inputGroup: {
+    gap: 10,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  optional: {
+    fontSize: 13,
+    fontWeight: '400',
+    marginLeft: 'auto',
   },
   input: {
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    borderWidth: 1.5,
   },
   textArea: {
     height: 100,
-    textAlignVertical: 'top',
-  },
-  error: {
-    marginTop: 8,
-    color: '#ff3b30',
+    paddingTop: 14,
   },
   footer: {
     padding: 16,
-    borderTopWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? 8 : 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   button: {
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

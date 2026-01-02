@@ -22,3 +22,4 @@ export interface LinkPreview {
   title: string;
   description: string | null;
   imageUrl: string | null;
+}

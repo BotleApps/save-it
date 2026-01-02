@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, Text, Pressable, StyleSheet } from 'react-native';
+import { ScrollView, Text, Pressable, StyleSheet, View, Platform } from 'react-native';
 import { useColors } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
+import { Hash, X } from 'lucide-react-native';
 
 interface Props {
   selectedTags: string[];
@@ -27,40 +28,56 @@ export function TagFilter({ selectedTags, onSelectTags }: Props) {
   if (allTags.length === 0) return null;
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
-      {allTags.map((tag) => (
-        <Pressable
-          key={tag}
-          style={[
-            styles.tag,
-            { backgroundColor: colors.card },
-            selectedTags.includes(tag) && { backgroundColor: colors.secondary }
-          ]}
-          onPress={() => toggleTag(tag)}
-        >
-          <Text
-            style={[
-              styles.tagText,
-              { color: colors.textSecondary },
-              selectedTags.includes(tag) && { color: colors.text }
-            ]}
-          >
-            #{tag}
-          </Text>
-        </Pressable>
-      ))}
-    </ScrollView>
+    <View style={styles.wrapper}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+      >
+        {allTags.map((tag) => {
+          const isSelected = selectedTags.includes(tag);
+          
+          return (
+            <Pressable
+              key={tag}
+              style={({ pressed }) => [
+                styles.tag,
+                { 
+                  backgroundColor: isSelected ? colors.primary : colors.backgroundSecondary,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                },
+                pressed && { opacity: 0.8 },
+              ]}
+              onPress={() => toggleTag(tag)}
+            >
+              {isSelected ? (
+                <X size={12} color="#FFFFFF" strokeWidth={2.5} />
+              ) : (
+                <Hash size={12} color={colors.textSecondary} strokeWidth={2.5} />
+              )}
+              <Text
+                style={[
+                  styles.tagText,
+                  { color: isSelected ? '#FFFFFF' : colors.text },
+                ]}
+              >
+                {tag}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     height: 52,
+  },
+  container: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: 16,
@@ -70,13 +87,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tag: {
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 16,
-    minHeight: 32,
-    justifyContent: 'center',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   tagText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

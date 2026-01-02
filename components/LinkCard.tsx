@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from '@/types/link';
-import { Clock, BookOpen, CheckCircle2 } from 'lucide-react-native';
-import { useColors } from '@/constants/colors';
+import { Clock, BookOpen, CheckCircle2, Globe, Tag } from 'lucide-react-native';
+import { useColors, getStatusColor } from '@/constants/colors';
 import { ReadingProgressBar } from '@/components/ReadingProgressBar';
 
 interface LinkCardProps {
@@ -12,99 +12,150 @@ interface LinkCardProps {
   onPress: () => void;
 }
 
-const StatusIcon = ({ status, color }: { status: Link['status']; color: string }) => {
-  switch (status) {
-    case 'unread':
-      return <Clock size={16} color={color} />;
-    case 'reading':
-      return <BookOpen size={16} color={color} />;
-    case 'completed':
-      return <CheckCircle2 size={16} color={color} />;
-  }
+const StatusBadge = ({ status, colors }: { status: Link['status']; colors: ReturnType<typeof useColors> }) => {
+  const statusConfig = {
+    unread: { icon: Clock, label: 'Unread' },
+    reading: { icon: BookOpen, label: 'Reading' },
+    completed: { icon: CheckCircle2, label: 'Done' },
+  };
+  
+  const config = statusConfig[status];
+  const Icon = config.icon;
+  const color = getStatusColor(status, colors);
+  
+  return (
+    <View style={[styles.statusBadge, { backgroundColor: `${color}20` }]}>
+      <Icon size={12} color={color} strokeWidth={2.5} />
+      <Text style={[styles.statusText, { color }]}>{config.label}</Text>
+    </View>
+  );
 };
 
 export function LinkCard({ link, onPress }: LinkCardProps) {
   const colors = useColors();
   const [imageError, setImageError] = useState(false);
   const hasImage = Boolean(link.imageUrl) && !imageError;
+  
   const gradientPalette = useMemo(() => {
     const gradients: ReadonlyArray<[string, string]> = [
-      ['#f472b6', '#c084fc'],
-      ['#60a5fa', '#818cf8'],
-      ['#f97316', '#facc15'],
-      ['#34d399', '#10b981'],
-      ['#f43f5e', '#ec4899'],
-      ['#c084fc', '#a855f7'],
-      ['#38bdf8', '#2563eb'],
+      ['#667eea', '#764ba2'],
+      ['#f093fb', '#f5576c'],
+      ['#4facfe', '#00f2fe'],
+      ['#43e97b', '#38f9d7'],
+      ['#fa709a', '#fee140'],
+      ['#a18cd1', '#fbc2eb'],
+      ['#ff9a9e', '#fecfef'],
     ];
     const key = link.id || link.url;
     const hash = key.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return gradients[hash % gradients.length];
   }, [link.id, link.url]);
 
-  const readableTag = useMemo(() => {
-    if (link.tags.length > 0) return `#${link.tags[0]}`;
-    return link.category || 'Collection';
-  }, [link.tags, link.category]);
+  const domain = useMemo(() => {
+    try {
+      return new URL(link.url).hostname.replace('www.', '');
+    } catch {
+      return null;
+    }
+  }, [link.url]);
+
+  const primaryTag = link.tags.length > 0 ? link.tags[0] : null;
 
   return (
     <Pressable 
       style={({ pressed }) => [
         styles.container,
-        { borderColor: colors.cardHover },
-        pressed && { transform: [{ scale: 0.98 }] }
+        { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          shadowColor: colors.shadow,
+        },
+        pressed && styles.pressed
       ]}
       onPress={onPress}
     >
-      <View style={styles.mediaWrapper}>
+      {/* Image Section */}
+      <View style={styles.imageContainer}>
         {hasImage ? (
           <Image
             source={{ uri: link.imageUrl! }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             onError={() => setImageError(true)}
+            transition={200}
           />
         ) : (
           <LinearGradient
             colors={gradientPalette}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
         )}
         <LinearGradient
-          colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']}
-          style={StyleSheet.absoluteFill}
+          colors={['transparent', 'rgba(0,0,0,0.6)']}
+          style={styles.imageOverlay}
         />
-
-        <View style={styles.cardTopRow}>
-          <View style={[styles.badge, { backgroundColor: 'rgba(0,0,0,0.35)' }]}> 
-            <Text style={styles.badgeText}>{readableTag}</Text>
-          </View>
-          <StatusIcon status={link.status} color="#fff" />
+        
+        {/* Status Badge on Image */}
+        <View style={styles.imageTopRow}>
+          <StatusBadge status={link.status} colors={colors} />
         </View>
+        
+        {/* Domain on Image */}
+        {domain && (
+          <View style={styles.domainContainer}>
+            <Globe size={10} color="rgba(255,255,255,0.9)" strokeWidth={2} />
+            <Text style={styles.domainText} numberOfLines={1}>{domain}</Text>
+          </View>
+        )}
+      </View>
 
-        <View style={styles.mediaContent}>
-          <Text style={styles.category} numberOfLines={1}>
-            {link.category || 'Save It'}
+      {/* Content Section */}
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
+          {link.title}
+        </Text>
+        
+        {link.description && (
+          <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={2}>
+            {link.description}
           </Text>
-          <Text style={styles.title} numberOfLines={3}>
-            {link.title}
-          </Text>
+        )}
+
+        {/* Footer Row */}
+        <View style={styles.footer}>
           <View style={styles.metaRow}>
-            {link.estimatedReadTime ? (
-              <Text style={styles.metaText}>{link.estimatedReadTime} min read</Text>
-            ) : (
-              <Text style={styles.metaText}>Tap to open</Text>
+            {link.estimatedReadTime && (
+              <View style={[styles.metaItem, { backgroundColor: colors.backgroundSecondary }]}>
+                <Clock size={11} color={colors.textTertiary} />
+                <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                  {link.estimatedReadTime} min
+                </Text>
+              </View>
+            )}
+            {primaryTag && (
+              <View style={[styles.metaItem, { backgroundColor: colors.primaryLight }]}>
+                <Tag size={11} color={colors.primary} />
+                <Text style={[styles.metaText, { color: colors.primary }]}>
+                  {primaryTag}
+                </Text>
+              </View>
             )}
             {link.tags.length > 1 && (
-              <Text style={styles.metaText}>+{link.tags.length - 1} tags</Text>
+              <Text style={[styles.moreTags, { color: colors.textTertiary }]}>
+                +{link.tags.length - 1}
+              </Text>
             )}
           </View>
-          {(link.readingProgress ?? 0) > 0 && (
-            <View style={styles.progressSection}>
-              <ReadingProgressBar progress={link.readingProgress ?? 0} />
-            </View>
-          )}
         </View>
+
+        {/* Progress Bar */}
+        {(link.readingProgress ?? 0) > 0 && (
+          <View style={styles.progressContainer}>
+            <ReadingProgressBar progress={link.readingProgress ?? 0} />
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -112,63 +163,111 @@ export function LinkCard({ link, onPress }: LinkCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    marginBottom: 16,
-    flex: 1,
-    minHeight: 240,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  mediaWrapper: {
-    flex: 1,
+  pressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.95,
+  },
+  imageContainer: {
+    height: 140,
     position: 'relative',
-    padding: 18,
-    justifyContent: 'space-between',
   },
-  cardTopRow: {
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+  },
+  imageTopRow: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  badge: {
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
+  statusText: {
+    fontSize: 11,
     fontWeight: '600',
-    textTransform: 'uppercase',
   },
-  mediaContent: {
-    marginTop: 'auto',
+  domainContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
-  category: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 8,
+  domainText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    fontWeight: '500',
+    maxWidth: 150,
+  },
+  content: {
+    padding: 14,
+    gap: 8,
   },
   title: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  description: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  footer: {
+    marginTop: 4,
   },
   metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    opacity: 0.85,
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
   },
   metaText: {
-    color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
   },
-  progressSection: {
-    marginTop: 12,
+  moreTags: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  progressContainer: {
+    marginTop: 8,
   },
 });

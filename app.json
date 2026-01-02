@@ -5,22 +5,23 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "saveit",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#5B5FC7"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.save-it"
+      "bundleIdentifier": "app.rork.save-it",
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#5B5FC7"
       },
       "package": "app.rork.saveit"
     },
@@ -31,7 +32,7 @@
       "name": "Save It",
       "shortName": "Save It",
       "description": "Save and organize your links, articles, and resources",
-      "themeColor": "#6366F1",
+      "themeColor": "#5B5FC7",
       "backgroundColor": "#FFFFFF",
       "display": "standalone",
       "orientation": "portrait",
@@ -54,7 +55,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#6366F1"
+          "color": "#5B5FC7"
         }
       ]
     ],

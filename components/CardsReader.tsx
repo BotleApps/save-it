@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, LayoutChangeEvent, ViewToken } from 'react-native';
+import { View, Text, StyleSheet, FlatList, LayoutChangeEvent, ViewToken, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/constants/colors';
+import { ChevronDown, Book } from 'lucide-react-native';
 
 interface CardsReaderProps {
   content: string;
@@ -16,8 +17,6 @@ export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
   const cards = useMemo(() => {
     if (!content) return ['No content available to read.'];
     
-    // Split by sentence endings (. ! ?)
-    // This regex matches a sentence ending with punctuation, or the end of the string
     const sentences = content.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) || [content];
     
     const chunks: string[] = [];
@@ -46,14 +45,14 @@ export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
   }, [content]);
 
   const cardGradients: ReadonlyArray<readonly [string, string]> = useMemo(() => [
-    ['#667eea', '#764ba2'],
-    ['#f093fb', '#f5576c'],
-    ['#4facfe', '#00f2fe'],
-    ['#43e97b', '#38f9d7'],
-    ['#fa709a', '#fee140'],
-    ['#a18cd1', '#fbc2eb'],
-    ['#ff9a9e', '#fecfef'],
-    ['#667eea', '#764ba2'],
+    ['#6366f1', '#8b5cf6'],
+    ['#ec4899', '#f43f5e'],
+    ['#06b6d4', '#14b8a6'],
+    ['#22c55e', '#10b981'],
+    ['#f59e0b', '#f97316'],
+    ['#8b5cf6', '#a855f7'],
+    ['#ef4444', '#ec4899'],
+    ['#3b82f6', '#6366f1'],
   ], []);
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -79,36 +78,69 @@ export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
     itemVisiblePercentThreshold: 50,
   };
 
+  const isLastCard = currentCard === cards.length - 1;
+  const isFirstCard = currentCard === 0;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} onLayout={handleLayout}>
       {containerHeight > 0 && (
-        <FlatList
-          data={cards}
-          keyExtractor={(_, index) => index.toString()}
-          pagingEnabled
-          showsVerticalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          renderItem={({ item, index }) => (
-            <View style={[styles.card, { height: containerHeight }]}>
-              <LinearGradient
-                colors={cardGradients[index % cardGradients.length]}
-                style={styles.cardGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              />
-              <View style={styles.cardContent}>
-                <Text style={[styles.text, { color: colors.text }]}>
-                  {item}
-                </Text>
-                <Text style={[styles.pageNumber, { color: colors.textSecondary }]}>
-                  {index + 1} / {cards.length}
+        <>
+          <FlatList
+            data={cards}
+            keyExtractor={(_, index) => index.toString()}
+            pagingEnabled
+            showsVerticalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            renderItem={({ item, index }) => (
+              <View style={[styles.card, { height: containerHeight }]}>
+                <LinearGradient
+                  colors={cardGradients[index % cardGradients.length] as [string, string]}
+                  style={styles.cardGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+                <View style={styles.cardContent}>
+                  <Text style={styles.text}>
+                    {item}
+                  </Text>
+                </View>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 0 }}
+          />
+          
+          {/* Progress indicator */}
+          <View style={[styles.progressContainer, { backgroundColor: colors.card }]}>
+            <View style={styles.progressInner}>
+              <View style={styles.progressInfo}>
+                <Book size={16} color={colors.primary} strokeWidth={2} />
+                <Text style={[styles.pageNumber, { color: colors.text }]}>
+                  {currentCard + 1} of {cards.length}
                 </Text>
               </View>
+              <View style={[styles.progressBar, { backgroundColor: colors.backgroundSecondary }]}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { 
+                      backgroundColor: colors.primary,
+                      width: `${((currentCard + 1) / cards.length) * 100}%` 
+                    }
+                  ]} 
+                />
+              </View>
+            </View>
+          </View>
+          
+          {/* Swipe hint */}
+          {isFirstCard && (
+            <View style={styles.swipeHint}>
+              <ChevronDown size={24} color="rgba(255,255,255,0.6)" strokeWidth={2} />
+              <Text style={styles.swipeHintText}>Swipe to continue</Text>
             </View>
           )}
-          contentContainerStyle={{ paddingBottom: 0 }}
-        />
+        </>
       )}
     </View>
   );
@@ -121,31 +153,83 @@ const styles = StyleSheet.create({
   card: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 40,
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 16,
   },
   cardGradient: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.15,
+    opacity: 0.12,
   },
   cardContent: {
     width: '100%',
+    maxWidth: 500,
     alignItems: 'center',
     zIndex: 1,
   },
   text: {
-    fontSize: 26,
+    fontSize: 24,
     lineHeight: 38,
     textAlign: 'center',
     fontWeight: '500',
-    marginBottom: 24,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  progressContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 40 : 24,
+    left: 20,
+    right: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  progressInner: {
+    padding: 16,
+    gap: 10,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   pageNumber: {
     fontSize: 14,
     fontWeight: '600',
-    opacity: 0.6,
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  swipeHint: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 130 : 110,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 4,
+  },
+  swipeHintText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
   },
 });

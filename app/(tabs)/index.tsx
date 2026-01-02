@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Text, RefreshControl, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList, Text, RefreshControl, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Plus, BookmarkPlus, Sparkles, Share2, ChevronDown, ChevronUp, Filter } from 'lucide-react-native';
-import { LinkCard } from '@/components/LinkCard';
+import { Plus, Sparkles, Share2, Library } from 'lucide-react-native';
 import { SwipeableLinkCard } from '@/components/SwipeableLinkCard';
 import { FilterBar } from '@/components/FilterBar';
 import { SearchBar } from '@/components/SearchBar';
@@ -39,12 +38,13 @@ export default function LinksScreen() {
   
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate refresh - in future could re-fetch previews
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
   const handleDelete = useCallback((id: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
     removeLink(id);
     showToast({ message: 'Link deleted', type: 'success' });
   }, [removeLink, showToast]);
@@ -53,7 +53,9 @@ export default function LinksScreen() {
     const newStatus = link.status === 'completed' ? 'unread' : 'completed';
     const newProgress = newStatus === 'completed' ? 1 : 0;
     updateLink(link.id, { status: newStatus, readingProgress: newProgress });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     showToast({ 
       message: newStatus === 'completed' ? 'Marked as complete!' : 'Marked as unread',
       type: 'success' 
@@ -73,114 +75,126 @@ export default function LinksScreen() {
     return matchesFilter && matchesSearch && matchesTags && matchesCategory;
   });
 
+  const clearAllFilters = () => {
+    setCurrentFilter('all');
+    setSelectedTags([]);
+    setSelectedCategory(null);
+    setSearchQuery('');
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Compact Toolbar */}
         <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-      />
-      
-      <FilterBar
-        currentFilter={currentFilter}
-        onFilterChange={setCurrentFilter}
-      />
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          showFilters={showAdvancedFilters}
+          onToggleFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          filterCount={activeFilterCount}
+        />
 
-      <Pressable 
-        style={[styles.filterToggle, { borderBottomColor: colors.border }]}
-        onPress={() => setShowAdvancedFilters(!showAdvancedFilters)}
-      >
-        <View style={styles.filterToggleLeft}>
-          <Filter size={16} color={colors.textSecondary} />
-          <Text style={[styles.filterToggleText, { color: colors.textSecondary }]}>
-            Advanced Filters
-          </Text>
-          {activeFilterCount > 0 && (
-            <View style={[styles.filterBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </View>
-        {showAdvancedFilters ? (
-          <ChevronUp size={18} color={colors.textSecondary} />
-        ) : (
-          <ChevronDown size={18} color={colors.textSecondary} />
-        )}
-      </Pressable>
+        {/* Advanced Filters Panel */}
+        {showAdvancedFilters && (
+          <View style={[styles.filtersPanel, { backgroundColor: colors.backgroundSecondary }]}>
+            <FilterBar
+              currentFilter={currentFilter}
+              onFilterChange={setCurrentFilter}
+            />
 
-      {showAdvancedFilters && (
-        <>
-          <CategoryFilter
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
 
-          <TagFilter
-            selectedTags={selectedTags}
-            onSelectTags={setSelectedTags}
-          />
-        </>
-      )}
-      
-      <FlatList
-        data={filteredLinks}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        renderItem={({ item }) => (
-          <SwipeableLinkCard
-            link={item}
-            onPress={() => router.push(`/link/${item.id}`)}
-            onDelete={() => handleDelete(item.id)}
-            onToggleComplete={() => handleToggleComplete(item)}
-          />
-        )}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <View style={[styles.emptyIconContainer, { backgroundColor: colors.card }]}>
-              <BookmarkPlus size={48} color={colors.primary} />
-            </View>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Your reading list is empty</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Save articles, videos, and links to read later
-            </Text>
+            <TagFilter
+              selectedTags={selectedTags}
+              onSelectTags={setSelectedTags}
+            />
             
-            <View style={styles.tipsList}>
-              <View style={styles.tipItem}>
-                <Plus size={18} color={colors.primary} />
-                <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                  Tap the + button to add a link
+            {activeFilterCount > 0 && (
+              <Pressable 
+                style={[styles.clearFiltersButton, { backgroundColor: colors.errorLight }]}
+                onPress={clearAllFilters}
+              >
+                <Text style={[styles.clearFiltersText, { color: colors.error }]}>
+                  Clear all filters
                 </Text>
-              </View>
-              <View style={styles.tipItem}>
-                <Share2 size={18} color={colors.primary} />
-                <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                  Share from any app to save instantly
-                </Text>
-              </View>
-              <View style={styles.tipItem}>
-                <Sparkles size={18} color={colors.primary} />
-                <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                  Swipe through content in Cards mode
-                </Text>
-              </View>
-            </View>
+              </Pressable>
+            )}
           </View>
         )}
-      />
+      
+        <FlatList
+          data={filteredLinks}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.content,
+            filteredLinks.length === 0 && styles.emptyContent
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          renderItem={({ item }) => (
+            <SwipeableLinkCard
+              link={item}
+              onPress={() => router.push(`/link/${item.id}`)}
+              onDelete={() => handleDelete(item.id)}
+              onToggleComplete={() => handleToggleComplete(item)}
+            />
+          )}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: colors.primaryLight }]}>
+                <Library size={48} color={colors.primary} strokeWidth={1.5} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Your library is empty
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Save articles, videos, and links to read later
+              </Text>
+              
+              <View style={styles.tipsList}>
+                <View style={[styles.tipItem, { backgroundColor: colors.backgroundSecondary }]}>
+                  <View style={[styles.tipIconContainer, { backgroundColor: colors.primaryLight }]}>
+                    <Plus size={16} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                    Tap the + button to add a link
+                  </Text>
+                </View>
+                <View style={[styles.tipItem, { backgroundColor: colors.backgroundSecondary }]}>
+                  <View style={[styles.tipIconContainer, { backgroundColor: colors.primaryLight }]}>
+                    <Share2 size={16} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                    Share from any app to save instantly
+                  </Text>
+                </View>
+                <View style={[styles.tipItem, { backgroundColor: colors.backgroundSecondary }]}>
+                  <View style={[styles.tipIconContainer, { backgroundColor: colors.primaryLight }]}>
+                    <Sparkles size={16} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.tipText, { color: colors.textSecondary }]}>
+                    Swipe cards to mark complete or delete
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        />
 
-      <FloatingButton
-        icon={<Plus size={24} color={colors.text} />}
-        onPress={() => router.push('../../new-link')}
-      />
+        <FloatingButton
+          icon={<Plus size={26} color={colors.textOnPrimary} strokeWidth={2.5} />}
+          onPress={() => router.push('../../new-link')}
+        />
       </View>
     </GestureHandlerRootView>
   );
@@ -192,75 +206,76 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
+    paddingTop: 8,
+    paddingBottom: 100,
   },
-  column: {
-    gap: 16,
-  },
-  cardWrapper: {
-    flex: 1,
+  emptyContent: {
+    flexGrow: 1,
   },
   emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
-    gap: 8,
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+    gap: 12,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   emptyIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
   tipsList: {
-    marginTop: 24,
-    gap: 16,
+    marginTop: 32,
+    gap: 12,
+    width: '100%',
   },
   tipItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+  },
+  tipIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tipText: {
     fontSize: 14,
-  },
-  filterToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-  },
-  filterToggleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  filterToggleText: {
-    fontSize: 14,
+    flex: 1,
     fontWeight: '500',
   },
-  filterBadge: {
-    minWidth: 20,
-    height: 20,
+  filtersPanel: {
+    paddingBottom: 12,
+  },
+  clearFiltersButton: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
   },
-  filterBadgeText: {
-    color: '#fff',
-    fontSize: 12,
+  clearFiltersText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

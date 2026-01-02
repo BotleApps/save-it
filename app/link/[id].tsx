@@ -9,16 +9,35 @@ import {
   Clipboard,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { ExternalLink, ArrowLeft, Trash2, Copy, Pencil, AlignLeft, GalleryHorizontal, MoreHorizontal, Loader2 } from 'lucide-react-native';
-import { useColors } from '@/constants/colors';
+import { 
+  ExternalLink, 
+  ArrowLeft, 
+  Trash2, 
+  Copy, 
+  Pencil, 
+  AlignLeft, 
+  GalleryHorizontal, 
+  MoreHorizontal, 
+  Loader2,
+  Globe,
+  Clock,
+  BookOpen,
+  CheckCircle,
+  Tag,
+  FileText,
+  Share2
+} from 'lucide-react-native';
+import { useColors, getStatusColor } from '@/constants/colors';
 import { useLinksStore } from '@/stores/links';
 import { ReadingProgressBar } from '@/components/ReadingProgressBar';
 import { CardsReader } from '@/components/CardsReader';
 import { useToast } from '@/contexts/toast';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LinkDetailsScreen() {
   const colors = useColors();
@@ -48,11 +67,10 @@ export default function LinkDetailsScreen() {
         const response = await fetch(link.url);
         const html = await response.text();
         
-        // Naive HTML to text extraction
         let text = html
           .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
           .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
-          .replace(/<\/?[^>]+(>|$)/g, " ") // Replace tags with space
+          .replace(/<\/?[^>]+(>|$)/g, " ")
           .replace(/&nbsp;/g, " ")
           .replace(/&amp;/g, "&")
           .replace(/&lt;/g, "<")
@@ -83,8 +101,16 @@ export default function LinkDetailsScreen() {
 
   if (!link) return null;
 
+  const triggerHaptic = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
   const handleDelete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
     removeLink(link.id);
     showToast({ message: 'Link deleted', type: 'success' });
     router.replace('/');
@@ -92,8 +118,8 @@ export default function LinkDetailsScreen() {
 
   const handleCopyLink = () => {
     Clipboard.setString(link.url);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    showToast({ message: 'Link copied to clipboard!', type: 'success' });
+    triggerHaptic();
+    showToast({ message: 'Link copied!', type: 'success' });
   };
 
   const handleOpenLink = () => {
@@ -107,26 +133,26 @@ export default function LinkDetailsScreen() {
     });
   };
 
-  const displayUrl = (() => {
+  const displayUrl = useMemo(() => {
     try {
       const parsed = new URL(link.url);
-      const path = parsed.pathname === '/' ? '' : parsed.pathname;
-      return `${parsed.hostname}${path}`;
+      return parsed.hostname.replace('www.', '');
     } catch {
       return link.url;
     }
-  })();
+  }, [link.url]);
 
-  const statusLabel = useMemo(() => {
-    switch (link.status) {
-      case 'reading':
-        return 'In progress';
-      case 'completed':
-        return 'Completed';
-      default:
-        return 'Queued';
-    }
+  const statusConfig = useMemo(() => {
+    const configs = {
+      unread: { label: 'Unread', icon: Clock },
+      reading: { label: 'In Progress', icon: BookOpen },
+      completed: { label: 'Completed', icon: CheckCircle },
+    };
+    return configs[link.status];
   }, [link.status]);
+
+  const StatusIcon = statusConfig.icon;
+  const statusColor = getStatusColor(link.status, colors);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -172,7 +198,9 @@ export default function LinkDetailsScreen() {
 
   const toggleReadingMode = () => {
     setReadingMode((prev) => (prev === 'normal' ? 'cards' : 'normal'));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const combinedContent = link.content || [link.description, link.note].filter(Boolean).join(' ');
@@ -182,9 +210,16 @@ export default function LinkDetailsScreen() {
       <Stack.Screen
         options={{
           headerTitle: '',
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={styles.headerButton}>
-              <ArrowLeft size={24} color={colors.text} />
+            <Pressable 
+              onPress={() => router.back()} 
+              style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
+            >
+              <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
             </Pressable>
           ),
           headerRight: () => (
@@ -196,22 +231,25 @@ export default function LinkDetailsScreen() {
               )}
               <Pressable
                 onPress={toggleReadingMode}
-                style={styles.headerButton}
+                style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
               >
                 {readingMode === 'normal' ? (
-                  <GalleryHorizontal size={22} color={colors.text} />
+                  <GalleryHorizontal size={22} color={colors.text} strokeWidth={2} />
                 ) : (
-                  <AlignLeft size={22} color={colors.text} />
+                  <AlignLeft size={22} color={colors.text} strokeWidth={2} />
                 )}
               </Pressable>
-              <Pressable onPress={handleOpenLink} style={styles.headerButton}>
-                <ExternalLink size={22} color={colors.text} />
+              <Pressable 
+                onPress={handleOpenLink} 
+                style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
+              >
+                <ExternalLink size={22} color={colors.text} strokeWidth={2} />
               </Pressable>
               <Pressable
                 onPress={() => setShowMoreActions(!showMoreActions)}
-                style={styles.headerButton}
+                style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
               >
-                <MoreHorizontal size={22} color={colors.text} />
+                <MoreHorizontal size={22} color={colors.text} strokeWidth={2} />
               </Pressable>
             </View>
           ),
@@ -226,102 +264,141 @@ export default function LinkDetailsScreen() {
           contentContainerStyle={styles.scrollContent}
           scrollEventThrottle={16}
           onScroll={handleScroll}
+          showsVerticalScrollIndicator={false}
         >
-        {link.imageUrl && (
-          <Image
-            source={{ uri: link.imageUrl }}
-            style={styles.image}
-            contentFit="cover"
-          />
-        )}
-
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>{link.title}</Text>
-          <View style={styles.progressHeader}>
-            <View style={[styles.statusBadge, { backgroundColor: colors.cardHover }]}> 
-              <Text style={[styles.statusText, { color: colors.text }]}>{statusLabel}</Text>
+          {/* Hero Image */}
+          {link.imageUrl && (
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: link.imageUrl }}
+                style={styles.image}
+                contentFit="cover"
+                transition={200}
+              />
+              <LinearGradient
+                colors={['transparent', colors.background]}
+                style={styles.imageGradient}
+              />
             </View>
-            <ReadingProgressBar progress={currentProgress} variant="large" />
-          </View>
-          
-          {(link.description || link.note) && (
-            <>
-              {link.description && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
-                  <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {link.description}
-                  </Text>
-                </View>
-              )}
-              
-              {link.note && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Note</Text>
-                  <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {link.note}
-                  </Text>
-                </View>
-              )}
-            </>
           )}
 
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Link</Text>
-            <Pressable onPress={handleOpenLink} style={[styles.urlPill, { borderColor: colors.border }]}> 
-              <Text
-                style={[styles.urlText, { color: colors.primary }]}
-                numberOfLines={2}
-              >
+          <View style={styles.content}>
+            {/* Status Badge */}
+            <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+              <StatusIcon size={14} color={statusColor} strokeWidth={2.5} />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {statusConfig.label}
+              </Text>
+            </View>
+
+            {/* Title */}
+            <Text style={[styles.title, { color: colors.text }]}>{link.title}</Text>
+            
+            {/* Source */}
+            <Pressable 
+              onPress={handleOpenLink}
+              style={({ pressed }) => [
+                styles.sourceRow,
+                { backgroundColor: colors.backgroundSecondary },
+                pressed && { opacity: 0.8 }
+              ]}
+            >
+              <Globe size={14} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={[styles.sourceText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {displayUrl}
               </Text>
+              <ExternalLink size={14} color={colors.textTertiary} strokeWidth={2} />
             </Pressable>
-          </View>
 
-          {link.tags.length > 0 && (
-            <View style={styles.tags}>
-              {link.tags.map((tag) => (
-                <View 
-                  key={tag} 
-                  style={[styles.tag, { backgroundColor: colors.cardHover }]}
-                >
-                  <Text style={[styles.tagText, { color: colors.text }]}>
-                    #{tag}
-                  </Text>
-                </View>
-              ))}
+            {/* Progress */}
+            <View style={[styles.progressCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <ReadingProgressBar progress={currentProgress} variant="large" />
             </View>
-          )}
-        </View>
+            
+            {/* Description */}
+            {link.description && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <FileText size={16} color={colors.primary} strokeWidth={2} />
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
+                </View>
+                <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
+                  {link.description}
+                </Text>
+              </View>
+            )}
+            
+            {/* Note */}
+            {link.note && (
+              <View style={[styles.noteCard, { backgroundColor: colors.primaryLight, borderColor: colors.primaryMuted }]}>
+                <Text style={[styles.noteLabel, { color: colors.primary }]}>Your note</Text>
+                <Text style={[styles.noteText, { color: colors.text }]}>
+                  {link.note}
+                </Text>
+              </View>
+            )}
+
+            {/* Tags */}
+            {link.tags.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Tag size={16} color={colors.primary} strokeWidth={2} />
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Tags</Text>
+                </View>
+                <View style={styles.tagsContainer}>
+                  {link.tags.map((tag) => (
+                    <View 
+                      key={tag} 
+                      style={[styles.tag, { backgroundColor: colors.backgroundSecondary }]}
+                    >
+                      <Text style={[styles.tagText, { color: colors.text }]}>
+                        #{tag}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
         </ScrollView>
       )}
 
+      {/* Action Menu Overlay */}
       {showMoreActions && (
         <Pressable 
-          style={styles.overlay} 
+          style={[styles.overlay, { backgroundColor: colors.overlay }]} 
           onPress={() => setShowMoreActions(false)}
         >
-          <View style={[styles.actionMenu, { backgroundColor: colors.card }]}>
+          <View style={[styles.actionMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Pressable 
-              style={styles.actionItem} 
+              style={({ pressed }) => [styles.actionItem, pressed && { backgroundColor: colors.cardPressed }]} 
               onPress={() => { handleCopyLink(); setShowMoreActions(false); }}
             >
-              <Copy size={20} color={colors.text} />
+              <View style={[styles.actionIconContainer, { backgroundColor: colors.infoLight }]}>
+                <Copy size={18} color={colors.info} strokeWidth={2} />
+              </View>
               <Text style={[styles.actionText, { color: colors.text }]}>Copy Link</Text>
             </Pressable>
+            
             <Pressable 
-              style={styles.actionItem} 
+              style={({ pressed }) => [styles.actionItem, pressed && { backgroundColor: colors.cardPressed }]} 
               onPress={() => { handleEditLink(); setShowMoreActions(false); }}
             >
-              <Pencil size={20} color={colors.text} />
+              <View style={[styles.actionIconContainer, { backgroundColor: colors.primaryLight }]}>
+                <Pencil size={18} color={colors.primary} strokeWidth={2} />
+              </View>
               <Text style={[styles.actionText, { color: colors.text }]}>Edit</Text>
             </Pressable>
-            <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
+            
+            <View style={[styles.actionDivider, { backgroundColor: colors.divider }]} />
+            
             <Pressable 
-              style={styles.actionItem} 
+              style={({ pressed }) => [styles.actionItem, pressed && { backgroundColor: colors.cardPressed }]} 
               onPress={() => { handleDelete(); setShowMoreActions(false); }}
             >
-              <Trash2 size={20} color={colors.error} />
+              <View style={[styles.actionIconContainer, { backgroundColor: colors.errorLight }]}>
+                <Trash2 size={18} color={colors.error} strokeWidth={2} />
+              </View>
               <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
             </Pressable>
           </View>
@@ -336,7 +413,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 48,
+    paddingBottom: 60,
   },
   headerButton: {
     padding: 8,
@@ -345,56 +422,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  imageContainer: {
+    height: 220,
+    position: 'relative',
+  },
   image: {
     width: '100%',
-    height: 200,
+    height: '100%',
+  },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
   },
   content: {
-    padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  progressHeader: {
-    marginBottom: 24,
-    gap: 12,
+    padding: 20,
+    gap: 16,
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    gap: 6,
     paddingVertical: 6,
-    borderRadius: 999,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   statusText: {
     fontSize: 13,
     fontWeight: '600',
-    textTransform: 'uppercase',
   },
-  section: {
-    marginBottom: 24,
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    lineHeight: 34,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  urlPill: {
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 10,
   },
-  urlText: {
-    fontSize: 15,
+  sourceText: {
+    fontSize: 14,
     fontWeight: '500',
+    flex: 1,
   },
-  tags: {
+  progressCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  bodyText: {
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  noteCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  noteLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  noteText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
@@ -402,10 +517,11 @@ const styles = StyleSheet.create({
   tag: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 8,
   },
   tagText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
   },
   overlay: {
     position: 'absolute',
@@ -413,35 +529,49 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 100 : 60,
     paddingRight: 16,
   },
   actionMenu: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 8,
-    minWidth: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    minWidth: 200,
+    borderWidth: StyleSheet.hairlineWidth,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     gap: 12,
-    borderRadius: 8,
+    borderRadius: 10,
+  },
+  actionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionText: {
     fontSize: 16,
     fontWeight: '500',
   },
   actionDivider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     marginVertical: 4,
+    marginHorizontal: 8,
   },
 });
