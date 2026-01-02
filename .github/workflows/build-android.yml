@@ -120,9 +120,9 @@ jobs:
         run: |
           echo "Waiting for build to complete..."
           # Get the latest build
-          BUILD_INFO=$(eas build:list --platform android --limit 1 --json --non-interactive)
-          BUILD_ID=$(echo "$BUILD_INFO" | jq -r '.[0].id')
-          BUILD_STATUS=$(echo "$BUILD_INFO" | jq -r '.[0].status')
+          BUILD_LIST=$(eas build:list --platform android --limit 1 --json --non-interactive)
+          BUILD_ID=$(echo "$BUILD_LIST" | jq -r '.[0].id')
+          BUILD_STATUS=$(echo "$BUILD_LIST" | jq -r '.[0].status')
           
           # Wait for completion (max 30 minutes)
           COUNTER=0
@@ -136,14 +136,18 @@ jobs:
           
           if [[ "$BUILD_STATUS" == "FINISHED" ]]; then
             echo "Build completed successfully!"
+            # Get fresh build info
+            BUILD_INFO=$(eas build:view $BUILD_ID --json)
             ARTIFACT_URL=$(echo "$BUILD_INFO" | jq -r '.artifacts.buildUrl')
             echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
             
             # Download the APK
-            if [[ -n "$ARTIFACT_URL" ]]; then
+            if [[ -n "$ARTIFACT_URL" && "$ARTIFACT_URL" != "null" ]]; then
               mkdir -p artifacts
               curl -L -o artifacts/save-it.apk "$ARTIFACT_URL"
               echo "APK downloaded successfully"
+            else
+              echo "Warning: No artifact URL found"
             fi
           else
             echo "Build failed or timed out. Status: $BUILD_STATUS"
