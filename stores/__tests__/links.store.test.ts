@@ -1,22 +1,43 @@
 import { useLinksStore } from '../links';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from '@testing-library/react-native'; // Using @testing-library/react-native for act
+import { Link } from '../../types/link';
+
+// Helper to create link data with defaults for testing
+const createTestLinkData = (overrides: Partial<Omit<Link, 'id' | 'createdAt'>> = {}): Omit<Link, 'id' | 'createdAt'> => ({
+  url: 'http://example.com',
+  title: 'Test Link',
+  description: null,
+  imageUrl: null,
+  tags: [],
+  category: null,
+  status: 'unread',
+  readingProgress: 0,
+  estimatedReadTime: null,
+  note: null,
+  groups: [],
+  prompt: null,
+  summary: null,
+  response: null,
+  content: null,
+  ...overrides,
+});
 
 // Helper to reset AsyncStorage mock
 const resetAsyncStorageMock = () => {
-  let store = {};
-  (AsyncStorage.setItem as jest.Mock).mockImplementation((key, value) => {
+  let store: Record<string, string> = {};
+  (AsyncStorage.setItem as jest.Mock).mockImplementation((key: string, value: string) => {
     return new Promise((resolve) => {
       store[key] = value;
       resolve(null);
     });
   });
-  (AsyncStorage.getItem as jest.Mock).mockImplementation((key) => {
+  (AsyncStorage.getItem as jest.Mock).mockImplementation((key: string) => {
     return new Promise((resolve) => {
       resolve(store[key] || null);
     });
   });
-  (AsyncStorage.removeItem as jest.Mock).mockImplementation((key) => {
+  (AsyncStorage.removeItem as jest.Mock).mockImplementation((key: string) => {
     return new Promise((resolve) => {
       delete store[key];
       resolve(null);
@@ -33,23 +54,23 @@ const resetAsyncStorageMock = () => {
       resolve(Object.keys(store));
     });
   });
-  (AsyncStorage.multiGet as jest.Mock).mockImplementation((keys) => {
+  (AsyncStorage.multiGet as jest.Mock).mockImplementation((keys: string[]) => {
     return new Promise((resolve) => {
-      const result = keys.map(key => [key, store[key] || null]);
+      const result = keys.map((key: string) => [key, store[key] || null]);
       resolve(result);
     });
   });
-  (AsyncStorage.multiSet as jest.Mock).mockImplementation((keyValuePairs) => {
+  (AsyncStorage.multiSet as jest.Mock).mockImplementation((keyValuePairs: [string, string][]) => {
     return new Promise((resolve) => {
-      keyValuePairs.forEach(([key, value]) => {
+      keyValuePairs.forEach(([key, value]: [string, string]) => {
         store[key] = value;
       });
       resolve(null);
     });
   });
-  (AsyncStorage.multiRemove as jest.Mock).mockImplementation((keys) => {
+  (AsyncStorage.multiRemove as jest.Mock).mockImplementation((keys: string[]) => {
     return new Promise((resolve) => {
-      keys.forEach(key => {
+      keys.forEach((key: string) => {
         delete store[key];
       });
       resolve(null);
@@ -76,7 +97,7 @@ describe('useLinksStore - addLink', () => {
 
   // Test 1: Should add a new link with generated id and createdAt.
   it('should add a new link with generated id and createdAt', async () => {
-    const newLinkData = { url: 'http://example.com', title: 'Example' };
+    const newLinkData = createTestLinkData({ url: 'http://example.com', title: 'Example' });
     
     // Get initial state (optional, for clarity or specific checks)
     // const initialState = useLinksStore.getState();
@@ -103,8 +124,8 @@ describe('useLinksStore - addLink', () => {
 
   // Test 2: Should add a new link to the beginning of the links array.
   it('should add a new link to the beginning of the links array', async () => {
-    const firstLinkData = { url: 'http://first.com', title: 'First' };
-    const secondLinkData = { url: 'http://second.com', title: 'Second' };
+    const firstLinkData = createTestLinkData({ url: 'http://first.com', title: 'First' });
+    const secondLinkData = createTestLinkData({ url: 'http://second.com', title: 'Second' });
 
     // Add the first link
     await act(async () => {
@@ -143,8 +164,8 @@ describe('useLinksStore - removeLink', () => {
   // Test 1: Should remove an existing link by id.
   it('should remove an existing link by id', async () => {
     // Add two links
-    const link1Data = { url: 'http://link1.com', title: 'Link 1' };
-    const link2Data = { url: 'http://link2.com', title: 'Link 2' };
+    const link1Data = createTestLinkData({ url: 'http://link1.com', title: 'Link 1' });
+    const link2Data = createTestLinkData({ url: 'http://link2.com', title: 'Link 2' });
     let link1Id = '';
 
     await act(async () => {
@@ -176,7 +197,7 @@ describe('useLinksStore - removeLink', () => {
 
   // Test 2: Should not change the store if trying to remove a non-existent link.
   it('should not change the store if trying to remove a non-existent link', async () => {
-    const linkData = { url: 'http://example.com', title: 'Example' };
+    const linkData = createTestLinkData({ url: 'http://example.com', title: 'Example' });
     await act(async () => {
       useLinksStore.getState().addLink(linkData);
     });
@@ -209,7 +230,7 @@ describe('useLinksStore - updateLink', () => {
 
   // Test 1: Should update properties of an existing link.
   it('should update properties of an existing link', async () => {
-    const initialLinkData = { url: 'http://original.com', title: 'Original Title' };
+    const initialLinkData = createTestLinkData({ url: 'http://original.com', title: 'Original Title' });
     let linkId = '';
 
     await act(async () => {
@@ -236,7 +257,7 @@ describe('useLinksStore - updateLink', () => {
 
   // Test 2: Should only update specified properties.
   it('should only update specified properties', async () => {
-    const initialLinkData = { url: 'http://original-url.com', title: 'Original Title for Partial Update' };
+    const initialLinkData = createTestLinkData({ url: 'http://original-url.com', title: 'Original Title for Partial Update' });
     let linkId = '';
 
     await act(async () => {
@@ -263,7 +284,7 @@ describe('useLinksStore - updateLink', () => {
 
   // Test 3: Should not change the store if trying to update a non-existent link.
   it('should not change the store if trying to update a non-existent link', async () => {
-    const initialLinkData = { url: 'http://some-link.com', title: 'Some Link' };
+    const initialLinkData = createTestLinkData({ url: 'http://some-link.com', title: 'Some Link' });
     await act(async () => {
       useLinksStore.getState().addLink(initialLinkData);
     });
@@ -294,8 +315,8 @@ describe('useLinksStore - getLink', () => {
 
   // Test 1: Should retrieve an existing link by id.
   it('should retrieve an existing link by id', async () => {
-    const linkData1 = { url: 'http://link1.com', title: 'Link One' };
-    const linkData2 = { url: 'http://link2.com', title: 'Link Two' };
+    const linkData1 = createTestLinkData({ url: 'http://link1.com', title: 'Link One' });
+    const linkData2 = createTestLinkData({ url: 'http://link2.com', title: 'Link Two' });
     let id1 = '';
     let id2 = '';
 
@@ -329,7 +350,7 @@ describe('useLinksStore - getLink', () => {
 
   // Test 2: Should return undefined if trying to get a non-existent link.
   it('should return undefined if trying to get a non-existent link', async () => {
-    const linkData = { url: 'http://exists.com', title: 'Existing Link' };
+    const linkData = createTestLinkData({ url: 'http://exists.com', title: 'Existing Link' });
     await act(async () => {
       useLinksStore.getState().addLink(linkData);
     });
