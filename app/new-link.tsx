@@ -194,10 +194,7 @@ export default function NewLinkScreen() {
     setIsLoading(true);
     setLoadingType('preview');
     
-    const [preview, content] = await Promise.all([
-      fetchPreview(formattedUrl),
-      fetchPageContent(formattedUrl)
-    ]);
+    const preview = await fetchPreview(formattedUrl);
     
     setLoadingType('save');
     
@@ -212,7 +209,6 @@ export default function NewLinkScreen() {
           title: preview?.title || existingLink.title,
           description: preview?.description ?? existingLink.description,
           imageUrl: preview?.imageUrl ?? existingLink.imageUrl,
-          content: content ?? existingLink.content,
         });
       } else {
         addLink({
@@ -230,7 +226,7 @@ export default function NewLinkScreen() {
           status: 'unread' as const,
           readingProgress: 0,
           estimatedReadTime: null,
-          content: content,
+          content: null, // Will be fetched lazily when viewing details
         });
       }
 
