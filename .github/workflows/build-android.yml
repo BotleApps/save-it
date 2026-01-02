@@ -126,7 +126,7 @@ jobs:
           
           # Wait for completion (max 30 minutes)
           COUNTER=0
-          while [[ "$BUILD_STATUS" == "in-progress" || "$BUILD_STATUS" == "pending" ]] && [[ $COUNTER -lt 60 ]]; do
+          while [[ "${BUILD_STATUS,,}" == "in-progress" || "${BUILD_STATUS,,}" == "pending" ]] && [[ $COUNTER -lt 60 ]]; do
             echo "Build status: $BUILD_STATUS. Waiting..."
             sleep 30
             BUILD_INFO=$(eas build:view $BUILD_ID --json)
@@ -134,7 +134,7 @@ jobs:
             COUNTER=$((COUNTER + 1))
           done
           
-          if [[ "$BUILD_STATUS" == "finished" ]]; then
+          if [[ "$BUILD_STATUS" == "FINISHED" ]]; then
             echo "Build completed successfully!"
             ARTIFACT_URL=$(echo "$BUILD_INFO" | jq -r '.artifacts.buildUrl')
             echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
