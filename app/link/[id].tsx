@@ -10,7 +10,9 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
+  Animated,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { 
@@ -48,10 +50,11 @@ export default function LinkDetailsScreen() {
   const updateLink = useLinksStore((state) => state.updateLink);
   const progressRef = useRef(link?.readingProgress ?? 0);
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
-  const [readingMode, setReadingMode] = useState<'normal' | 'cards'>('normal');
+  const [readingMode, setReadingMode] = useState<'normal' | 'text' | 'cards'>('normal');
   const [isFetchingContent, setIsFetchingContent] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const { showToast } = useToast();
+  const swipeY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!link) {
@@ -122,8 +125,17 @@ export default function LinkDetailsScreen() {
     showToast({ message: 'Link copied!', type: 'success' });
   };
 
-  const handleOpenLink = () => {
-    Linking.openURL(link.url);
+  const handleOpenLink = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(link.url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        controlsColor: colors.primary,
+      });
+      triggerHaptic();
+    } catch (error) {
+      // Fallback to Linking if WebBrowser fails
+      Linking.openURL(link.url);
+    }
   };
 
   const handleEditLink = () => {
@@ -197,7 +209,11 @@ export default function LinkDetailsScreen() {
   );
 
   const toggleReadingMode = () => {
-    setReadingMode((prev) => (prev === 'normal' ? 'cards' : 'normal'));
+    setReadingMode((prev) => {
+      if (prev === 'normal') return 'text';
+      if (prev === 'text') return 'cards';
+      return 'normal';
+    });
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -234,6 +250,8 @@ export default function LinkDetailsScreen() {
                 style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
               >
                 {readingMode === 'normal' ? (
+                  <FileText size={22} color={colors.text} strokeWidth={2} />
+                ) : readingMode === 'text' ? (
                   <GalleryHorizontal size={22} color={colors.text} strokeWidth={2} />
                 ) : (
                   <AlignLeft size={22} color={colors.text} strokeWidth={2} />
@@ -258,6 +276,69 @@ export default function LinkDetailsScreen() {
       
       {readingMode === 'cards' ? (
         <CardsReader content={combinedContent} onProgressUpdate={handleCardsProgress} />
+      ) : readingMode === 'text' ? (
+        <ScrollView
+          style={[styles.container, { backgroundColor: colors.card }]}
+          contentContainerStyle={styles.textModeContent}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Simple Text Reader */}
+          <View style={[styles.textReaderHeader, { borderBottomColor: colors.divider }]}>
+            <Text style={[styles.textReaderTitle, { color: colors.text }]}>{link.title}</Text>
+            <Pressable
+              onPress={handleOpenLink}
+              style={({ pressed }) => [
+                styles.textReaderSource,
+                { backgroundColor: colors.backgroundSecondary },
+                pressed && { opacity: 0.7 }
+              ]}
+            >
+              <Globe size={12} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={[styles.textReaderSourceText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {displayUrl}
+              </Text>
+              <ExternalLink size={12} color={colors.textTertiary} strokeWidth={2} />
+            </Pressable>
+          </View>
+          
+          <View style={styles.textReaderBody}>
+            {link.content ? (
+              <Text style={[styles.textReaderContent, { color: colors.text }]}>
+                {link.content}
+              </Text>
+            ) : link.description ? (
+              <>
+                <Text style={[styles.textReaderContent, { color: colors.text }]}>
+                  {link.description}
+                </Text>
+                {isFetchingContent && (
+                  <View style={styles.loadingContainer}>
+                    <Loader2 size={20} color={colors.textSecondary} />
+                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+                      Loading full content...
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.noContentContainer}>
+                <FileText size={48} color={colors.textTertiary} strokeWidth={1.5} />
+                <Text style={[styles.noContentText, { color: colors.textSecondary }]}>
+                  No content available
+                </Text>
+                <Text style={[styles.noContentHint, { color: colors.textTertiary }]}>
+                  Tap the link above to visit the source
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={[styles.textReaderProgress, { backgroundColor: colors.backgroundSecondary }]}>
+            <ReadingProgressBar progress={currentProgress} variant="large" />
+          </View>
+        </ScrollView>
       ) : (
         <ScrollView
           style={[styles.container, { backgroundColor: colors.background }]}
@@ -359,6 +440,20 @@ export default function LinkDetailsScreen() {
                 </View>
               </View>
             )}
+            
+            {/* Swipe up hint */}
+            <Pressable 
+              onPress={handleOpenLink}
+              style={({ pressed }) => [
+                styles.openLinkButton,
+                { backgroundColor: colors.primary },
+                pressed && { opacity: 0.9 }
+              ]}
+            >
+              <Globe size={18} color="#FFF" strokeWidth={2} />
+              <Text style={styles.openLinkText}>Open in Browser</Text>
+              <ExternalLink size={16} color="#FFF" strokeWidth={2} />
+            </Pressable>
           </View>
         </ScrollView>
       )}
@@ -522,6 +617,86 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  openLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 8,
+  },
+  openLinkText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  textModeContent: {
+    paddingBottom: 40,
+  },
+  textReaderHeader: {
+    padding: 20,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  textReaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 30,
+  },
+  textReaderSource: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  textReaderSourceText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  textReaderBody: {
+    padding: 20,
+    paddingTop: 24,
+    gap: 20,
+  },
+  textReaderContent: {
+    fontSize: 17,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+  },
+  textReaderProgress: {
+    margin: 20,
+    marginTop: 0,
+    padding: 16,
+    borderRadius: 12,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  noContentContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  noContentText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noContentHint: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   overlay: {
     position: 'absolute',
