@@ -50,11 +50,12 @@ export default function LinkDetailsScreen() {
   const updateLink = useLinksStore((state) => state.updateLink);
   const progressRef = useRef(link?.readingProgress ?? 0);
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
-  const [readingMode, setReadingMode] = useState<'normal' | 'text' | 'cards'>('normal');
+  const [readingMode, setReadingMode] = useState<'details' | 'text' | 'cards'>('details');
   const [isFetchingContent, setIsFetchingContent] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const { showToast } = useToast();
-  const swipeY = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
 
   useEffect(() => {
     if (!link) {
@@ -67,26 +68,69 @@ export default function LinkDetailsScreen() {
       
       setIsFetchingContent(true);
       try {
-        const response = await fetch(link.url);
-        const html = await response.text();
+        // Use Microlink.io API for better content extraction
+        const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(link.url)}&data.content=true`;
+        const response = await fetch(apiUrl);
         
-        let text = html
-          .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
-          .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
-          .replace(/<\/?[^>]+(>|$)/g, " ")
-          .replace(/&nbsp;/g, " ")
-          .replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"')
-          .replace(/\s+/g, " ")
-          .trim();
+        if (!response.ok) {
+          throw new Error('Failed to fetch from Microlink API');
+        }
         
-        if (text.length > 50) {
-          updateLink(link.id, { content: text });
+        const data = await response.json();
+        
+        if (data?.data?.content) {
+          // Microlink returns clean article content
+          const content = data.data.content;
+          
+          // Clean up the content
+          const cleanedContent = content
+            .replace(/\s+/g, ' ')
+            .replace(/\n+/g, '\n\n')
+            .trim();
+          
+          if (cleanedContent.length > 100) {
+            updateLink(link.id, { content: cleanedContent });
+          }
+        } else {
+          // Fallback: try extracting from description or publisher metadata
+          const fallbackContent = [
+            data?.data?.description,
+            data?.data?.publisher,
+            link.description
+          ].filter(Boolean).join('\n\n');
+          
+          if (fallbackContent.length > 50) {
+            updateLink(link.id, { content: fallbackContent });
+          }
         }
       } catch (error) {
         console.log('Failed to fetch content:', error);
+        // Try basic fetch as last resort (will work on native, not web due to CSP)
+        if (Platform.OS !== 'web') {
+          try {
+            const response = await fetch(link.url);
+            const html = await response.text();
+            
+            // Extract text content from HTML
+            let text = html
+              .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, '')
+              .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, '')
+              .replace(/<\/?[^>]+(>|$)/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/\s+/g, ' ')
+              .trim();
+            
+            if (text.length > 100) {
+              updateLink(link.id, { content: text });
+            }
+          } catch (fallbackError) {
+            console.log('Fallback fetch also failed:', fallbackError);
+          }
+        }
       } finally {
         setIsFetchingContent(false);
       }
@@ -210,14 +254,34 @@ export default function LinkDetailsScreen() {
 
   const toggleReadingMode = () => {
     setReadingMode((prev) => {
-      if (prev === 'normal') return 'text';
+      if (prev === 'details') return 'text';
       if (prev === 'text') return 'cards';
-      return 'normal';
+      return 'details';
     });
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  const handleScrollBeginDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset } = event.nativeEvent;
+      if (contentOffset.y < -100 && readingMode === 'details') {
+        setShowSwipeHint(false);
+      }
+    },
+    [readingMode]
+  );
+
+  const handleScrollEndDrag = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset } = event.nativeEvent;
+      if (contentOffset.y < -120 && readingMode === 'details') {
+        handleOpenLink();
+      }
+    },
+    [readingMode]
+  );
 
   const combinedContent = link.content || [link.description, link.note].filter(Boolean).join(' ');
 
@@ -249,12 +313,12 @@ export default function LinkDetailsScreen() {
                 onPress={toggleReadingMode}
                 style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
               >
-                {readingMode === 'normal' ? (
-                  <FileText size={22} color={colors.text} strokeWidth={2} />
+                {readingMode === 'details' ? (
+                  <AlignLeft size={22} color={colors.text} strokeWidth={2} />
                 ) : readingMode === 'text' ? (
                   <GalleryHorizontal size={22} color={colors.text} strokeWidth={2} />
                 ) : (
-                  <AlignLeft size={22} color={colors.text} strokeWidth={2} />
+                  <FileText size={22} color={colors.text} strokeWidth={2} />
                 )}
               </Pressable>
               <Pressable 
@@ -282,7 +346,7 @@ export default function LinkDetailsScreen() {
           contentContainerStyle={styles.textModeContent}
           scrollEventThrottle={16}
           onScroll={handleScroll}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
         >
           {/* Simple Text Reader */}
           <View style={[styles.textReaderHeader, { borderBottomColor: colors.divider }]}>
@@ -345,8 +409,20 @@ export default function LinkDetailsScreen() {
           contentContainerStyle={styles.scrollContent}
           scrollEventThrottle={16}
           onScroll={handleScroll}
+          onScrollBeginDrag={handleScrollBeginDrag}
+          onScrollEndDrag={handleScrollEndDrag}
+          bounces={true}
           showsVerticalScrollIndicator={false}
         >
+          {/* Pull to open hint */}
+          {showSwipeHint && (
+            <View style={[styles.pullHintContainer, { opacity: 0.6 }]}>
+              <View style={[styles.pullHint, { backgroundColor: colors.textTertiary }]} />
+              <Text style={[styles.pullHintText, { color: colors.textSecondary }]}>
+                Pull down to open in browser
+              </Text>
+            </View>
+          )}
           {/* Hero Image */}
           {link.imageUrl && (
             <View style={styles.imageContainer}>
@@ -440,20 +516,6 @@ export default function LinkDetailsScreen() {
                 </View>
               </View>
             )}
-            
-            {/* Swipe up hint */}
-            <Pressable 
-              onPress={handleOpenLink}
-              style={({ pressed }) => [
-                styles.openLinkButton,
-                { backgroundColor: colors.primary },
-                pressed && { opacity: 0.9 }
-              ]}
-            >
-              <Globe size={18} color="#FFF" strokeWidth={2} />
-              <Text style={styles.openLinkText}>Open in Browser</Text>
-              <ExternalLink size={16} color="#FFF" strokeWidth={2} />
-            </Pressable>
           </View>
         </ScrollView>
       )}
@@ -618,19 +680,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  openLinkButton: {
-    flexDirection: 'row',
+  pullHintContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    padding: 16,
-    borderRadius: 14,
-    marginTop: 8,
+    paddingVertical: 12,
+    gap: 8,
   },
-  openLinkText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
+  pullHint: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+  },
+  pullHintText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   textModeContent: {
     paddingBottom: 40,

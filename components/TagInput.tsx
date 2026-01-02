@@ -106,15 +106,22 @@ export function TagInput({ tags, onChange }: Props) {
           ]}
           value={input}
           onChangeText={(text) => {
-            setInput(text);
-            if (text.endsWith(',')) {
-              handleAddTag(text.slice(0, -1));
+            // Add tag on space or comma
+            if (text.endsWith(' ') || text.endsWith(',')) {
+              const tagValue = text.slice(0, -1).trim();
+              if (tagValue) {
+                handleAddTag(tagValue);
+              } else {
+                setInput('');
+              }
+            } else {
+              setInput(text);
             }
           }}
           onSubmitEditing={() => handleAddTag()}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder="Type and press enter to add..."
+          onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+          placeholder="Type tags (space to add)..."
           placeholderTextColor={colors.textTertiary}
           returnKeyType="done"
           selectionColor={colors.primary}

@@ -85,26 +85,55 @@ export default function NewLinkScreen() {
   const fetchPageContent = async (url: string) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       
-      const response = await fetch(url, { signal: controller.signal });
+      // Try Microlink API first for better content extraction
+      const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(url)}&data.content=true`;
+      const response = await fetch(apiUrl, { 
+        signal: controller.signal,
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
       clearTimeout(timeoutId);
       
-      const html = await response.text();
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data?.data?.content) {
+          const cleanedContent = data.data.content
+            .replace(/\s+/g, ' ')
+            .replace(/\n+/g, '\n\n')
+            .trim();
+          
+          if (cleanedContent.length > 100) {
+            return cleanedContent;
+          }
+        }
+      }
       
-      let text = html
-        .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
-        .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
-        .replace(/<\/?[^>]+(>|$)/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/\s+/g, " ")
-        .trim();
+      // Fallback for native platforms only (web has CSP restrictions)
+      if (Platform.OS !== 'web') {
+        const directResponse = await fetch(url, { signal: controller.signal });
+        const html = await directResponse.text();
+        
+        let text = html
+          .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
+          .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gim, "")
+          .replace(/<\/?[^>]+(>|$)/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim();
+        
+        return text.length > 50 ? text : null;
+      }
       
-      return text.length > 50 ? text : null;
+      return null;
     } catch (error) {
       console.log('Content fetch failed:', error);
       return null;
