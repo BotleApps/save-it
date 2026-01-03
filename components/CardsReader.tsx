@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, LayoutChangeEvent, ViewToken, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useColors } from '@/constants/colors';
+import { useColors, useTheme } from '@/constants/colors';
 import { ChevronDown, Book } from 'lucide-react-native';
 
 interface CardsReaderProps {
@@ -11,6 +11,7 @@ interface CardsReaderProps {
 
 export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
   const colors = useColors();
+  const theme = useTheme();
   const [containerHeight, setContainerHeight] = useState(0);
   const [currentCard, setCurrentCard] = useState(0);
   
@@ -96,12 +97,25 @@ export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
               <View style={[styles.card, { height: containerHeight }]}>
                 <LinearGradient
                   colors={cardGradients[index % cardGradients.length] as [string, string]}
-                  style={styles.cardGradient}
+                  style={[
+                    styles.cardGradient,
+                    { opacity: theme === 'dark' ? 0.12 : 0.08 },
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 />
                 <View style={styles.cardContent}>
-                  <Text style={styles.text}>
+                  <Text
+                    style={[
+                      styles.text,
+                      {
+                        color: theme === 'dark' ? colors.textOnPrimary : colors.text,
+                          textShadowColor: theme === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.9)',
+                          textShadowOffset: theme === 'dark' ? { width: 0, height: 1 } : { width: 0, height: 0 },
+                          textShadowRadius: theme === 'dark' ? 4 : 0,
+                      },
+                    ]}
+                  >
                     {item}
                   </Text>
                 </View>
@@ -136,8 +150,8 @@ export function CardsReader({ content, onProgressUpdate }: CardsReaderProps) {
           {/* Swipe hint */}
           {isFirstCard && (
             <View style={styles.swipeHint}>
-              <ChevronDown size={24} color="rgba(255,255,255,0.6)" strokeWidth={2} />
-              <Text style={styles.swipeHintText}>Swipe to continue</Text>
+              <ChevronDown size={24} color={theme === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(26,29,33,0.6)'} strokeWidth={2} />
+              <Text style={[styles.swipeHintText, { color: theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(26,29,33,0.6)' }]}>Swipe to continue</Text>
             </View>
           )}
         </>
@@ -174,10 +188,7 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     textAlign: 'center',
     fontWeight: '500',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    // Color and shadow are applied inline based on theme for correct contrast
   },
   progressContainer: {
     position: 'absolute',

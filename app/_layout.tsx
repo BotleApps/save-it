@@ -3,6 +3,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { initSentry } from '@/lib/sentry';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider } from '@/contexts/toast';
 import { useColors } from '@/constants/colors';
@@ -26,6 +27,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (error) throw error;
   }, [error]);
+
+  useEffect(() => {
+    // Initialize Sentry only on native platforms and when configured
+    if (Platform.OS !== 'web') {
+      initSentry();
+    }
+  }, []);
 
   useEffect(() => {
     if (loaded) {

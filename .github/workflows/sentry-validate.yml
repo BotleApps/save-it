@@ -1,0 +1,24 @@
+name: Sentry Validate
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-sentry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - name: Configure npm auth (set NPM_TOKEN in repo secrets)
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck and smoke test
+        run: |
+          npx tsc --noEmit
+          node -e "require('./dist/scripts/sentry-smoke.js')"
