@@ -53,7 +53,7 @@ export default function LinkDetailsScreen() {
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
   const [readingMode, setReadingMode] = useState<'details' | 'text' | 'cards'>('details');
   const [isFetchingContent, setIsFetchingContent] = useState(false);
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-clear loading state after 30 seconds (failsafe)
   useEffect(() => {
@@ -208,6 +208,11 @@ export default function LinkDetailsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  const handleDescriptionPress = useCallback(() => {
+    console.log('[UI] Description pressed - switching to text mode');
+    setReadingMode('text');
+  }, [setReadingMode]);
 
   const handleScrollBeginDrag = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -469,15 +474,27 @@ export default function LinkDetailsScreen() {
             
             {/* Description */}
             {link.description && (
-              <View style={styles.section}>
+              <Pressable 
+                onPress={handleDescriptionPress}
+                style={({ pressed }) => [
+                  styles.section,
+                  { opacity: pressed ? 0.7 : 1 }
+                ]}
+              >
                 <View style={styles.sectionHeader}>
                   <FileText size={16} color={colors.primary} strokeWidth={2} />
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
                 </View>
-                <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
+                <Text 
+                  style={[styles.bodyText, { color: colors.textSecondary }]}
+                  numberOfLines={3}
+                >
                   {link.description}
                 </Text>
-              </View>
+                <Text style={[styles.seeMoreText, { color: colors.primary }]}>
+                  See more →
+                </Text>
+              </Pressable>
             )}
             
             {/* Note */}
@@ -503,9 +520,7 @@ export default function LinkDetailsScreen() {
                       key={tag} 
                       style={[styles.tag, { backgroundColor: colors.backgroundSecondary }]}
                     >
-                      <Text style={[styles.tagText, { color: colors.text }]}>
-                        #{tag}
-                      </Text>
+                      <Text style={[styles.tagText, { color: colors.text }]}>#{tag}</Text>
                     </View>
                   ))}
                 </View>
@@ -795,6 +810,12 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: 15,
     lineHeight: 24,
+  },
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    textDecorationLine: 'underline',
   },
   noteCard: {
     padding: 16,

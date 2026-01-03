@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
+      },
       "ios": {
         "simulator": true
       },
@@ -16,6 +19,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
+      },
       "ios": {
         "simulator": true
       },
@@ -26,6 +32,9 @@
     "production": {
       "distribution": "store",
       "autoIncrement": true,
+      "env": {
+        "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
+      },
       "android": {
         "buildType": "app-bundle"
       }
