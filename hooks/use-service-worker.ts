@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 interface ServiceWorkerStatus {
   isRegistered: boolean;
   isUpdating: boolean;
-  registration: ServiceWorkerRegistration | null;
+  registration: MinimalServiceWorkerRegistration | null;
 }
 
 export function useServiceWorker() {
@@ -20,7 +20,7 @@ export function useServiceWorker() {
     }
 
     // Check if service worker is already registered
-    navigator.serviceWorker.getRegistration().then((registration) => {
+    navigator.serviceWorker.getRegistration().then((registration: MinimalServiceWorkerRegistration | null) => {
       if (registration) {
         setStatus({
           isRegistered: true,
@@ -33,7 +33,7 @@ export function useServiceWorker() {
           setStatus((prev) => ({ ...prev, isUpdating: true }));
 
           const newWorker = registration.installing;
-          if (newWorker) {
+            if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 // New service worker available
@@ -57,7 +57,7 @@ export function useServiceWorker() {
     });
 
     // Listen for messages from service worker
-    navigator.serviceWorker.addEventListener('message', (event) => {
+    navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
       if (event.data && event.data.type === 'SYNC_START') {
         console.log('Background sync started');
       }

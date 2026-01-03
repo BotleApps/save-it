@@ -17,23 +17,22 @@ export function useNetworkStatus() {
       setIsOnline(true);
       setWasOffline(true);
       
-      // Register background sync if supported
-      if (
-        'serviceWorker' in navigator &&
-        typeof ServiceWorkerRegistration !== 'undefined' &&
-        'sync' in ServiceWorkerRegistration.prototype
-      ) {
-        navigator.serviceWorker.ready.then((registration) => {
-          if ('sync' in registration) {
-            const syncRegistration = registration as ServiceWorkerRegistration & {
-              sync: { register: (tag: string) => Promise<void> };
-            };
-            return syncRegistration.sync.register('sync-links');
-          }
-          return undefined;
-        }).catch((error) => {
-          console.log('Background sync registration failed:', error);
-        });
+      // Register background sync if supported (guarded to browser only)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+          .then((registration: MinimalServiceWorkerRegistration | undefined | null) => {
+            try {
+              if (registration && registration.sync) {
+                return registration.sync.register('sync-links');
+              }
+            } catch (e) {
+              // ignore errors from unexpected shapes
+            }
+            return undefined;
+          })
+          .catch((error: any) => {
+            console.log('Background sync registration failed:', error);
+          });
       }
 
       // Clear the flag after 5 seconds

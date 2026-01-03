@@ -2,6 +2,14 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2021"],
+    "skipLibCheck": true,
+    "jsx": "react-native",
+    "types": ["react", "react-native"],
     "paths": {
       "@/*": [
         "./*"
