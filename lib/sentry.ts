@@ -10,7 +10,7 @@ export type SentryLike = {
 let Sentry: SentryLike = shim;
 
 export function initSentry() {
-  const dsn = process.env.SENTRY_DSN || (global as any)?.__SENTRY_DSN;
+  const dsn = process.env.SENTRY_DSN || (globalThis as any)?.__SENTRY_DSN;
   if (!dsn) return;
 
   try {

@@ -23,3 +23,10 @@ declare var ServiceWorker: {
 declare interface Window {
   navigator: any;
 }
+
+// Minimal MessageEvent for service worker messages
+declare interface MessageEvent<T = any> {
+  readonly data: T;
+  readonly origin?: string;
+  readonly lastEventId?: string;
+}
