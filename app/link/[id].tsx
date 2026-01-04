@@ -42,6 +42,101 @@ import { useToast } from '@/contexts/toast';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
+// Content extraction script for WebView
+const EXTRACTION_SCRIPT = `
+  // Wait for content with better retry logic
+  function waitForContent(attempt = 0) {
+    if (attempt > 15) {
+      console.log('[JS] Max retries (15) reached, extracting what we have');
+      extractAndSend();
+      return;
+    }
+    
+    const article = document.querySelector('article') || 
+                   document.querySelector('[role="main"]') || 
+                   document.querySelector('main') ||
+                   document.querySelector('.post-content') ||
+                   document.querySelector('.article-content') ||
+                   document.querySelector('.entry-content') ||
+                   document.querySelector('.content') ||
+                   document.querySelector('[class*="article"]') ||
+                   document.querySelector('[data-testid="storyBody"]') ||
+                   document.body;
+    
+    const textElements = article.querySelectorAll('p, h1, h2, h3, h4, h5, h6');
+    console.log('[JS] Attempt', attempt + 1, '- found', textElements.length, 'text elements');
+    
+    if (textElements.length >= 3) {
+      console.log('[JS] Found sufficient content, extracting...');
+      extractAndSend();
+    } else {
+      setTimeout(() => waitForContent(attempt + 1), 1000);
+    }
+  }
+  
+  function extractAndSend() {
+    const article = document.querySelector('article') || 
+                   document.querySelector('[role="main"]') || 
+                   document.querySelector('main') ||
+                   document.querySelector('.post-content') ||
+                   document.querySelector('.article-content') ||
+                   document.querySelector('.entry-content') ||
+                   document.querySelector('.content') ||
+                   document.querySelector('[class*="article"]') ||
+                   document.body;
+    
+    const clone = article.cloneNode(true);
+    
+    // Remove unwanted elements
+    const selectorsToRemove = [
+      'script', 'style', 'nav', 'header', 'footer', 'aside', 
+      'iframe', 'noscript', 'button', 'form',
+      '[class*="ad"]', '[class*="advertisement"]', '[class*="sidebar"]',
+      '[class*="related"]', '[class*="comment"]', '[class*="share"]'
+    ];
+    
+    selectorsToRemove.forEach(selector => {
+      try {
+        clone.querySelectorAll(selector).forEach(el => el.remove());
+      } catch (e) {}
+    });
+    
+    // Extract paragraphs
+    const paragraphs = [];
+    const textNodes = clone.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote');
+    
+    textNodes.forEach(node => {
+      const text = node.textContent.trim();
+      if (text.length > 20) {
+        paragraphs.push(text);
+      }
+    });
+    
+    console.log('[JS] Extracted', paragraphs.length, 'paragraphs');
+    
+    if (paragraphs.length === 0) {
+      // Fallback: get all visible text
+      const fallback = article.innerText.trim();
+      if (fallback.length > 100) {
+        window.ReactNativeWebView.postMessage(fallback);
+        return;
+      }
+    }
+    
+    const content = paragraphs.join('\\n\\n');
+    console.log('[JS] Final content length:', content.length);
+    
+    if (content.length > 50) {
+      window.ReactNativeWebView.postMessage(content);
+    } else {
+      window.ReactNativeWebView.postMessage('EXTRACTION_FAILED');
+    }
+  }
+  
+  // Start extraction
+  waitForContent();
+`;
+
 export default function LinkDetailsScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams();
@@ -49,32 +144,35 @@ export default function LinkDetailsScreen() {
   const link = useLinksStore((state) => state.getLink(id as string));
   const removeLink = useLinksStore((state) => state.removeLink);
   const updateLink = useLinksStore((state) => state.updateLink);
+  const { showToast } = useToast();
   const progressRef = useRef(link?.readingProgress ?? 0);
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
   const [readingMode, setReadingMode] = useState<'details' | 'text' | 'cards'>('details');
   const [isFetchingContent, setIsFetchingContent] = useState(false);
   const [userInitiatedFetch, setUserInitiatedFetch] = useState(false);
+  const webViewRef = useRef<WebView>(null);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
 
-  // Auto-clear loading state after 30 seconds (failsafe)
+  // Auto-clear loading state after 60 seconds (failsafe) - increased timeout
   useEffect(() => {
     if (isFetchingContent) {
-      console.log('[WebView] Starting 30-second timeout for content extraction');
+      console.log('[WebView] Starting 60-second timeout for content extraction');
       fetchTimeoutRef.current = setTimeout(() => {
         console.log('[WebView] Timeout reached, clearing loading state');
         setIsFetchingContent(false);
-      }, 30000);
+        setUserInitiatedFetch(false);
+        showToast({ message: 'Content extraction timed out', type: 'error' });
+      }, 60000);
     }
     return () => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [isFetchingContent]);
-  const [showMoreActions, setShowMoreActions] = useState(false);
-  const { showToast } = useToast();
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [showSwipeHint, setShowSwipeHint] = useState(true);
+  }, [isFetchingContent, showToast]);
 
   useEffect(() => {
     if (!link) {
@@ -262,6 +360,14 @@ export default function LinkDetailsScreen() {
           contentPreview: extractedText?.substring(0, 150),
         });
         
+        if (extractedText === 'EXTRACTION_FAILED') {
+          console.log('[WebView] Extraction explicitly failed');
+          setIsFetchingContent(false);
+          setUserInitiatedFetch(false);
+          showToast({ message: 'Could not extract article content', type: 'error' });
+          return;
+        }
+        
         if (extractedText && extractedText.length > 50) {
           console.log('[WebView] Content length valid, cleaning and storing...');
           // Clean and format the content - preserve paragraphs
@@ -276,18 +382,21 @@ export default function LinkDetailsScreen() {
           console.log('[WebView] Saving to link.content...');
           updateLink(link.id, { content: cleanedContent });
           setIsFetchingContent(false);
-          showToast({ message: 'Content loaded', type: 'success' });
+          setUserInitiatedFetch(false);
+          showToast({ message: 'Article content loaded successfully!', type: 'success' });
           console.log('[WebView] Content saved successfully');
         } else {
-          console.log('[WebView] Content too short or empty, not saving:', {
+          console.log('[WebView] Content too short, not saving:', {
             length: extractedText?.length,
           });
           setIsFetchingContent(false);
-          showToast({ message: 'Could not extract content', type: 'error' });
+          setUserInitiatedFetch(false);
+          showToast({ message: 'Article too short or empty', type: 'error' });
         }
       } catch (error) {
         console.error('[WebView] Failed to process message:', error);
         setIsFetchingContent(false);
+        setUserInitiatedFetch(false);
         showToast({ message: 'Error extracting content', type: 'error' });
       }
     },
@@ -295,8 +404,24 @@ export default function LinkDetailsScreen() {
   );
 
   const handleWebViewLoad = useCallback(() => {
-    console.log('[WebView] Page loaded, injecting extraction script...');
-    setIsFetchingContent(true);
+    console.log('[WebView] Page started loading...');
+  }, []);
+
+  const handleWebViewLoadEnd = useCallback(() => {
+    console.log('[WebView] Page finished loading, waiting 2 seconds for dynamic content...');
+    // Give dynamic content time to render, then inject extraction script
+    setTimeout(() => {
+      console.log('[WebView] Injecting content extraction script...');
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            console.log('[JS] Starting content extraction...');
+            ${EXTRACTION_SCRIPT}
+          })();
+          true;
+        `);
+      }
+    }, 2000);
   }, []);
 
   const handleWebViewError = useCallback((error: any) => {
@@ -624,151 +749,40 @@ export default function LinkDetailsScreen() {
         </ScrollView>
       )}
 
-      {/* Hidden WebView for content extraction */}
+      {/* Hidden WebView for content extraction - Native only */}
       {!link.content && Platform.OS !== 'web' && userInitiatedFetch && isFetchingContent && (
         <View style={{ height: 0, width: 0, overflow: 'hidden' }}>
           <WebView
+            ref={webViewRef}
             key={`webview-${link.id}-${Date.now()}`}
             source={{ uri: link.url }}
             onMessage={handleWebViewMessage}
-            onLoad={handleWebViewLoad}
+            onLoadStart={handleWebViewLoad}
+            onLoadEnd={handleWebViewLoadEnd}
             onError={handleWebViewError}
-            onLoadingFinish={() => {
-              console.log('[WebView] onLoadingFinish triggered, waiting for dynamic content...');
-            }}
-            injectedJavaScript={`
-              (function() {
-                console.log('[JS] Content extraction script loaded');
-                
-                // Wait for DOM to be fully interactive
-                function waitForContent(attempt = 0) {
-                  if (attempt > 10) {
-                    console.log('[JS] Max retries reached');
-                    return;
-                  }
-                  
-                  // Check if main content exists
-                  const article = document.querySelector('article') || 
-                                 document.querySelector('[role="main"]') || 
-                                 document.querySelector('main') ||
-                                 document.querySelector('.post-content') ||
-                                 document.querySelector('.article-content') ||
-                                 document.querySelector('.entry-content') ||
-                                 document.querySelector('.article') ||
-                                 document.querySelector('[data-testid="storyBody"]') ||
-                                 document.body;
-                  
-                  const textElements = article.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
-                  console.log('[JS] Attempt', attempt, '- found', textElements.length, 'text elements');
-                  
-                  // If we found content, extract it
-                  if (textElements.length > 0) {
-                    extractAndSend(article, textElements);
-                  } else {
-                    // Try again in 1 second
-                    setTimeout(() => waitForContent(attempt + 1), 1000);
-                  }
-                }
-                
-                function extractAndSend(article, textElements) {
-                  console.log('[JS] Starting extraction with', textElements.length, 'elements');
-                  
-                  // Clone the article to avoid modifying the actual DOM
-                  const clone = article.cloneNode(true);
-                  
-                  // Remove unwanted elements
-                  const elementsToRemove = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe', 'noscript', 'button', '.advertisement', '[class*="ad"]', '[class*="sidebar"]'];
-                  elementsToRemove.forEach(selector => {
-                    try {
-                      const removed = clone.querySelectorAll(selector).length;
-                      if (removed > 0) console.log('[JS] Removed', removed, 'elements matching', selector);
-                      clone.querySelectorAll(selector).forEach(el => el.remove());
-                    } catch (e) {
-                      // Ignore invalid selectors
-                    }
-                  });
-                  
-                  // Extract text with better structure preservation
-                  let content = '';
-                  const paragraphs = [];
-                  
-                  // Get all text content, preserving some structure
-                  const walker = document.createTreeWalker(
-                    clone,
-                    NodeFilter.SHOW_TEXT,
-                    null
-                  );
-                  
-                  let node;
-                  let currentParagraph = '';
-                  
-                  while (node = walker.nextNode()) {
-                    const text = node.textContent.trim();
-                    if (text.length > 0) {
-                      const parentTag = node.parentElement?.tagName.toLowerCase();
-                      
-                      // If we hit a block element, save current paragraph
-                      if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'div'].includes(parentTag) && currentParagraph.length > 0) {
-                        paragraphs.push(currentParagraph);
-                        currentParagraph = '';
-                      }
-                      
-                      // Add text to current paragraph
-                      if (currentParagraph.length > 0) {
-                        currentParagraph += ' ' + text;
-                      } else {
-                        currentParagraph = text;
-                      }
-                    }
-                  }
-                  
-                  // Don't forget the last paragraph
-                  if (currentParagraph.length > 0) {
-                    paragraphs.push(currentParagraph);
-                  }
-                  
-                  // Filter out very short paragraphs but keep more than before
-                  const filteredParagraphs = paragraphs.filter(p => p.length > 10);
-                  console.log('[JS] Extracted', filteredParagraphs.length, 'paragraphs after filtering');
-                  
-                  // Join with proper spacing
-                  content = filteredParagraphs.join('\\n\\n');
-                  
-                  // Minimal cleanup - preserve whitespace structure
-                  content = content
-                    .replace(/\\n\\n+/g, '\\n\\n') // Multiple newlines to double newline
-                    .replace(/[ \\t]+/g, ' ') // Multiple spaces/tabs to single space
-                    .replace(/\\n[ \\t]+/g, '\\n') // Remove leading spaces after newlines
-                    .trim();
-                  
-                  console.log('[JS] Final content length:', content.length);
-                  console.log('[JS] Content preview:', content.substring(0, 150));
-                  
-                  if (content.length > 50) {
-                    console.log('[JS] Sending content via postMessage');
-                    window.ReactNativeWebView.postMessage(content);
-                  } else {
-                    console.log('[JS] Content too short, trying fallback extraction');
-                    // Fallback: get all visible text with minimal processing
-                    const fallback = article.innerText.trim();
-                    if (fallback.length > 50) {
-                      window.ReactNativeWebView.postMessage(fallback);
-                    } else {
-                      console.log('[JS] No content extracted, sending empty string');
-                      window.ReactNativeWebView.postMessage('');
-                    }
-                  }
-                }
-                
-                // Start waiting for content after a short delay
-                console.log('[JS] Starting content detection...');
-                setTimeout(() => waitForContent(), 500);
-              })();
-              true;
-            `}
             startInLoadingState={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
             scalesPageToFit={true}
           />
+        </View>
+      )}
+
+      {/* Web platform message - content extraction not available */}
+      {!link.content && Platform.OS === 'web' && userInitiatedFetch && isFetchingContent && (
+        <View style={{ height: 0 }}>
+          {(() => {
+            // Auto-dismiss on web since WebView doesn't work
+            setTimeout(() => {
+              setIsFetchingContent(false);
+              setUserInitiatedFetch(false);
+              showToast({ 
+                message: 'Content extraction only available on mobile app', 
+                type: 'error' 
+              });
+            }, 100);
+            return null;
+          })()}
         </View>
       )}
 
