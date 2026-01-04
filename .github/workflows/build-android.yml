@@ -37,6 +37,13 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
+      - name: 🔎 Fail if bun.lock present
+        run: |
+          if [ -f bun.lock ]; then
+            echo "Detected bun.lock in repository. Remove bun.lock and commit the change to prevent Bun being used by cloud builders. See docs in AUDIT_REPORT.md." >&2
+            exit 1
+          fi
+
       - name: 🏗 Setup Node
         uses: actions/setup-node@v4
         with:
@@ -64,6 +71,13 @@ jobs:
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
+
+      - name: 🔎 Fail if bun.lock present
+        run: |
+          if [ -f bun.lock ]; then
+            echo "Detected bun.lock in repository. Remove bun.lock and commit the change to prevent Bun being used by cloud builders. See docs in AUDIT_REPORT.md." >&2
+            exit 1
+          fi
 
       - name: 🏗 Setup Node
         uses: actions/setup-node@v4
