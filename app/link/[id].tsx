@@ -198,6 +198,12 @@ export default function LinkDetailsScreen() {
     [link.id, updateLink]
   );
 
+  const retryContentFetch = useCallback(() => {
+    console.log('[UI] Manual content fetch triggered');
+    setIsFetchingContent(true);
+    showToast({ message: 'Fetching content...', type: 'success' });
+  }, [showToast]);
+
   const toggleReadingMode = () => {
     setReadingMode((prev) => {
       if (prev === 'details') return 'text';
@@ -240,33 +246,39 @@ export default function LinkDetailsScreen() {
         const extractedText = event.nativeEvent.data;
         console.log('[WebView] Received message from JavaScript:', {
           length: extractedText?.length,
-          contentPreview: extractedText?.substring(0, 100),
+          contentPreview: extractedText?.substring(0, 150),
         });
         
-        if (extractedText && extractedText.length > 100) {
+        if (extractedText && extractedText.length > 50) {
           console.log('[WebView] Content length valid, cleaning and storing...');
-          // Clean and format the content
+          // Clean and format the content - preserve paragraphs
           const cleanedContent = extractedText
-            .replace(/\s+/g, ' ')
-            .replace(/\. /g, '.\n\n')
+            .split('\n\n')
+            .map((para: string) => para.replace(/\s+/g, ' ').trim())
+            .filter((para: string) => para.length > 20)
+            .join('\n\n')
             .trim();
           
           console.log('[WebView] Cleaned content length:', cleanedContent.length);
+          console.log('[WebView] Saving to link.content...');
           updateLink(link.id, { content: cleanedContent });
           setIsFetchingContent(false);
+          showToast({ message: 'Content loaded', type: 'success' });
           console.log('[WebView] Content saved successfully');
         } else {
           console.log('[WebView] Content too short or empty, not saving:', {
             length: extractedText?.length,
           });
           setIsFetchingContent(false);
+          showToast({ message: 'Could not extract content', type: 'error' });
         }
       } catch (error) {
         console.error('[WebView] Failed to process message:', error);
         setIsFetchingContent(false);
+        showToast({ message: 'Error extracting content', type: 'error' });
       }
     },
-    [link?.id, updateLink]
+    [link?.id, updateLink, showToast]
   );
 
   const handleWebViewLoad = useCallback(() => {
@@ -372,20 +384,42 @@ export default function LinkDetailsScreen() {
               <Text style={[styles.textReaderContent, { color: colors.text }]}>
                 {link.content}
               </Text>
+            ) : isFetchingContent ? (
+              <View style={styles.loadingContainer}>
+                <Loader2 size={24} color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.text }]}>
+                  Extracting full article content...
+                </Text>
+                <Text style={[styles.loadingHint, { color: colors.textSecondary }]}>
+                  This may take a few seconds
+                </Text>
+              </View>
             ) : link.description ? (
-              <>
+              <View style={styles.descriptionFallback}>
+                <View style={[styles.infoBox, { backgroundColor: colors.warningLight, borderColor: colors.warning }]}>
+                  <FileText size={16} color={colors.warning} strokeWidth={2} />
+                  <Text style={[styles.infoText, { color: colors.text }]}>
+                    Showing preview text. Full content extraction failed.
+                  </Text>
+                </View>
                 <Text style={[styles.textReaderContent, { color: colors.text }]}>
                   {link.description}
                 </Text>
-                {isFetchingContent && (
-                  <View style={styles.loadingContainer}>
-                    <Loader2 size={20} color={colors.textSecondary} />
-                    <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                      Loading full content...
+                {Platform.OS !== 'web' && (
+                  <Pressable
+                    onPress={retryContentFetch}
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      { backgroundColor: colors.primary },
+                      pressed && { opacity: 0.8 }
+                    ]}
+                  >
+                    <Text style={[styles.retryButtonText, { color: colors.textOnPrimary }]}>
+                      Try fetching full content again
                     </Text>
-                  </View>
+                  </Pressable>
                 )}
-              </>
+              </View>
             ) : (
               <View style={styles.noContentContainer}>
                 <FileText size={48} color={colors.textTertiary} strokeWidth={1.5} />
@@ -395,6 +429,20 @@ export default function LinkDetailsScreen() {
                 <Text style={[styles.noContentHint, { color: colors.textTertiary }]}>
                   Tap the link above to visit the source
                 </Text>
+                {Platform.OS !== 'web' && (
+                  <Pressable
+                    onPress={retryContentFetch}
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      { backgroundColor: colors.primary },
+                      pressed && { opacity: 0.8 }
+                    ]}
+                  >
+                    <Text style={[styles.retryButtonText, { color: colors.textOnPrimary }]}>
+                      Try fetching content
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </View>
@@ -531,19 +579,16 @@ export default function LinkDetailsScreen() {
       )}
 
       {/* Hidden WebView for content extraction */}
-      {!link.content && Platform.OS !== 'web' && (
+      {!link.content && Platform.OS !== 'web' && isFetchingContent && (
         <View style={{ height: 0, width: 0, overflow: 'hidden' }}>
           <WebView
+            key={`webview-${link.id}-${Date.now()}`}
             source={{ uri: link.url }}
             onMessage={handleWebViewMessage}
             onLoad={handleWebViewLoad}
             onError={handleWebViewError}
             onLoadingFinish={() => {
               console.log('[WebView] onLoadingFinish triggered, waiting for dynamic content...');
-              // Wait 3 seconds for dynamic content to load, then run extraction
-              setTimeout(() => {
-                console.log('[WebView] Running content extraction after delay');
-              }, 3000);
             }}
             injectedJavaScript={`
               (function() {
@@ -904,15 +949,45 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   loadingContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 20,
+    gap: 12,
+    paddingVertical: 60,
   },
   loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingHint: {
     fontSize: 14,
-    fontWeight: '500',
+  },
+  descriptionFallback: {
+    gap: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  retryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  retryButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   noContentContainer: {
     alignItems: 'center',
