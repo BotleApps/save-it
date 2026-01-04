@@ -488,7 +488,39 @@ export default function LinkDetailsScreen() {
         }}
       />
       
-      {readingMode === 'cards' ? (
+      {isFetchingContent && userInitiatedFetch && Platform.OS !== 'web' ? (
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <View style={[styles.fetchingHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <Loader2 size={18} color={colors.primary} />
+            <Text style={[styles.fetchingHeaderText, { color: colors.text }]}>
+              Extracting content from {displayUrl}...
+            </Text>
+            <Pressable 
+              onPress={() => { 
+                setIsFetchingContent(false); 
+                setUserInitiatedFetch(false); 
+              }}
+              style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={[styles.cancelButtonText, { color: colors.primary }]}>Cancel</Text>
+            </Pressable>
+          </View>
+          <WebView
+            ref={webViewRef}
+            key={`webview-${link.id}-${Date.now()}`}
+            source={{ uri: link.url }}
+            onMessage={handleWebViewMessage}
+            onLoadStart={handleWebViewLoad}
+            onLoadEnd={handleWebViewLoadEnd}
+            onError={handleWebViewError}
+            startInLoadingState={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            scalesPageToFit={true}
+            style={styles.webViewContainer}
+          />
+        </View>
+      ) : readingMode === 'cards' ? (
         <CardsReader content={combinedContent} onProgressUpdate={handleCardsProgress} />
       ) : readingMode === 'text' ? (
         <ScrollView
@@ -747,25 +779,6 @@ export default function LinkDetailsScreen() {
             )}
           </View>
         </ScrollView>
-      )}
-
-      {/* Hidden WebView for content extraction - Native only */}
-      {!link.content && Platform.OS !== 'web' && userInitiatedFetch && isFetchingContent && (
-        <View style={{ height: 0, width: 0, overflow: 'hidden' }}>
-          <WebView
-            ref={webViewRef}
-            key={`webview-${link.id}-${Date.now()}`}
-            source={{ uri: link.url }}
-            onMessage={handleWebViewMessage}
-            onLoadStart={handleWebViewLoad}
-            onLoadEnd={handleWebViewLoadEnd}
-            onError={handleWebViewError}
-            startInLoadingState={true}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            scalesPageToFit={true}
-          />
-        </View>
       )}
 
       {/* Web platform message - content extraction not available */}
@@ -1111,6 +1124,31 @@ const styles = StyleSheet.create({
   noContentHint: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+  fetchingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  fetchingHeaderText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   overlay: {
     position: 'absolute',
