@@ -53,6 +53,7 @@ export default function LinkDetailsScreen() {
   const [currentProgress, setCurrentProgress] = useState(progressRef.current);
   const [readingMode, setReadingMode] = useState<'details' | 'text' | 'cards'>('details');
   const [isFetchingContent, setIsFetchingContent] = useState(false);
+  const [userInitiatedFetch, setUserInitiatedFetch] = useState(false);
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-clear loading state after 30 seconds (failsafe)
@@ -200,8 +201,20 @@ export default function LinkDetailsScreen() {
 
   const retryContentFetch = useCallback(() => {
     console.log('[UI] Manual content fetch triggered');
+    setUserInitiatedFetch(true);
     setIsFetchingContent(true);
-    showToast({ message: 'Fetching content...', type: 'success' });
+    showToast({ message: 'Fetching article content...', type: 'success' });
+  }, [showToast]);
+
+  const handleStartReading = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    console.log('[UI] Start Reading button clicked');
+    setUserInitiatedFetch(true);
+    setIsFetchingContent(true);
+    setReadingMode('text');
+    showToast({ message: 'Extracting article content...', type: 'success' });
   }, [showToast]);
 
   const toggleReadingMode = () => {
@@ -522,27 +535,60 @@ export default function LinkDetailsScreen() {
             
             {/* Description */}
             {link.description && (
-              <Pressable 
-                onPress={handleDescriptionPress}
-                style={({ pressed }) => [
-                  styles.section,
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
-              >
+              <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <FileText size={16} color={colors.primary} strokeWidth={2} />
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Preview</Text>
                 </View>
                 <Text 
                   style={[styles.bodyText, { color: colors.textSecondary }]}
-                  numberOfLines={3}
+                  numberOfLines={4}
                 >
                   {link.description}
                 </Text>
-                <Text style={[styles.seeMoreText, { color: colors.primary }]}>
-                  See more →
-                </Text>
+              </View>
+            )}
+
+            {/* Start Reading CTA - Only show if no content yet */}
+            {!link.content && !isFetchingContent && (
+              <Pressable
+                onPress={handleStartReading}
+                style={({ pressed }) => [
+                  styles.startReadingButton,
+                  { backgroundColor: colors.primary },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }
+                ]}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark || colors.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.startReadingGradient}
+                >
+                  <BookOpen size={22} color={colors.textOnPrimary} strokeWidth={2.5} />
+                  <Text style={[styles.startReadingText, { color: colors.textOnPrimary }]}>
+                    Start Reading
+                  </Text>
+                  <Text style={[styles.startReadingHint, { color: `${colors.textOnPrimary}CC` }]}>
+                    Extract full article content
+                  </Text>
+                </LinearGradient>
               </Pressable>
+            )}
+
+            {/* Loading content indicator */}
+            {isFetchingContent && (
+              <View style={[styles.fetchingCard, { backgroundColor: colors.card, borderColor: colors.primary }]}>
+                <Loader2 size={24} color={colors.primary} />
+                <View style={styles.fetchingTextContainer}>
+                  <Text style={[styles.fetchingTitle, { color: colors.text }]}>
+                    Extracting content...
+                  </Text>
+                  <Text style={[styles.fetchingSubtitle, { color: colors.textSecondary }]}>
+                    This may take a few seconds
+                  </Text>
+                </View>
+              </View>
             )}
             
             {/* Note */}
@@ -579,7 +625,7 @@ export default function LinkDetailsScreen() {
       )}
 
       {/* Hidden WebView for content extraction */}
-      {!link.content && Platform.OS !== 'web' && isFetchingContent && (
+      {!link.content && Platform.OS !== 'web' && userInitiatedFetch && isFetchingContent && (
         <View style={{ height: 0, width: 0, overflow: 'hidden' }}>
           <WebView
             key={`webview-${link.id}-${Date.now()}`}
@@ -855,6 +901,56 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: 15,
     lineHeight: 24,
+  },
+  startReadingButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  startReadingGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    gap: 8,
+  },
+  startReadingText: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  startReadingHint: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  fetchingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  fetchingTextContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  fetchingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fetchingSubtitle: {
+    fontSize: 14,
   },
   seeMoreText: {
     fontSize: 14,
