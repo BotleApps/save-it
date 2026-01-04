@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "18.18.0",
       "env": {
         "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
       },
@@ -19,6 +20,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "node": "18.18.0",
       "env": {
         "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
       },
@@ -32,6 +34,7 @@
     "production": {
       "distribution": "store",
       "autoIncrement": true,
+      "node": "18.18.0",
       "env": {
         "EXPO_PREBUILD_TOKEN": "$EXPO_TOKEN"
       },
